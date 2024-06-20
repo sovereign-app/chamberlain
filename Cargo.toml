@@ -1,0 +1,20 @@
+[package]
+name = "chamberlain"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+bitcoin = "0.30"
+cdk = { git = "https://github.com/davidcaseria/cdk", branch = "ldk" }
+cdk-axum = { git = "https://github.com/davidcaseria/cdk", branch = "ldk" }
+cdk-ldk = { git = "https://github.com/davidcaseria/cdk", branch = "ldk" }
+cdk-redb = { git = "https://github.com/davidcaseria/cdk", branch = "ldk" }
+clap = { version = "4.5.4", features = ["derive", "cargo"] }
+dirs = "5.0.1"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal"] }
+tracing = { version = "0.1.40", features = ["log"] }
+tracing-subscriber = { version = "0.3.18", features = [
+    "env-filter",
+    "tracing-log",
+] }
+url = "2.5.0"
