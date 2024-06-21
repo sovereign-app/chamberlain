@@ -38,6 +38,7 @@ message OpenChannelRequest {
 message OpenChannelResponse {
     string channel_id = 1;
     string address = 2;
+    string quote_id = 3;
 }
 
 message FundChannelRequest {
@@ -51,6 +52,7 @@ message FundChannelResponse {
 
 message ClaimChannelRequest {
     string channel_id = 1;
+    string quote_id = 2;
 }
 
 message ClaimChannelResponse {

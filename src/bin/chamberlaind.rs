@@ -31,8 +31,7 @@ use chamberlain::rpc::{
     OpenChannelResponse,
 };
 use clap::Parser;
-use redb::TableDefinition;
-use tokio::{signal::unix::SignalKind, sync::RwLock};
+use tokio::signal::unix::SignalKind;
 use tokio_util::sync::CancellationToken;
 use tonic::{transport::Server, Request, Response, Status};
 use tracing::level_filters::LevelFilter;
@@ -114,9 +113,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
     fs::create_dir_all(&data_dir)?;
 
-    // Initialize database
-    let db = Database::open(data_dir.join("db"))?;
-
     // Initialize Bitcoin RPC client
     let rpc_client = BitcoinClient::new(
         cli.bitcoind_rpc_url.as_str(),
@@ -178,7 +174,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing::info!("Starting RPC server");
     let rpc_addr = SocketAddr::new(cli.rpc_host, cli.rpc_port);
     let rpc_server = RpcServer {
-        db,
         mint: mint.clone(),
         mint_url: cli.mint_url.clone(),
         network: cli.network,
@@ -216,7 +211,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 struct RpcServer {
-    db: Database,
     mint: Mint,
     mint_url: Url,
     network: Network,
@@ -298,10 +292,6 @@ impl Chamberlain for RpcServer {
             )
             .await
             .map_err(|_| Status::internal("mint quote failed"))?;
-        self.db
-            .insert_channel_quote(channel.channel_id.to_string(), mint_quote.id.to_string())
-            .await
-            .map_err(|_| Status::internal("db error"))?;
         tracing::info!("Created mint quote for channel open: {}", mint_quote.id);
 
         Ok(Response::new(OpenChannelResponse {
@@ -309,6 +299,7 @@ impl Chamberlain for RpcServer {
             address: Address::from_script(&channel.funding_script, self.network)
                 .map_err(|_| Status::internal("invalid script"))?
                 .to_string(),
+            quote_id: mint_quote.id,
         }))
     }
 
@@ -326,11 +317,13 @@ impl Chamberlain for RpcServer {
         );
         let tx = Transaction::consensus_decode(&mut &request.tx[..])
             .map_err(|_| Status::invalid_argument("invalid transaction"))?;
+
         let channel = self
             .node
             .fund_channel(channel_id, tx)
             .await
             .map_err(map_ldk_error)?;
+
         Ok(Response::new(FundChannelResponse {
             channel_id: channel.to_string(),
         }))
@@ -348,12 +341,6 @@ impl Chamberlain for RpcServer {
                 .try_into()
                 .map_err(|_| Status::internal("invalid channel id"))?,
         );
-        let quote_id = self
-            .db
-            .get_channel_quote(request.channel_id)
-            .await
-            .map_err(|_| Status::internal("db error"))?
-            .ok_or(Status::not_found("quote not found"))?;
 
         if !self.node.is_channel_ready(channel_id) {
             return Err(Status::failed_precondition("channel not ready"));
@@ -392,8 +379,18 @@ impl Chamberlain for RpcServer {
             .await
             .map_err(|_| Status::internal("mint quotes error"))?
             .into_iter()
-            .find(|q| q.id == quote_id)
+            .find(|q| q.id == request.quote_id)
             .ok_or(Status::not_found("quote not found"))?;
+        if Into::<u64>::into(quote.amount)
+            != self
+                .node
+                .get_open_channel_value(channel_id)
+                .await
+                .map_err(|_| Status::internal("channel db error"))?
+                .to_sat()
+        {
+            return Err(Status::failed_precondition("quote amount incorrect"));
+        }
         quote.paid = true;
         self.mint
             .update_mint_quote(quote.clone())
@@ -432,43 +429,4 @@ fn map_mint_error(e: cdk::mint::error::Error) -> Status {
 
 fn map_ldk_error(e: cdk_ldk::Error) -> Status {
     Status::internal(e.to_string())
-}
-
-const CHANNEL_QUOTES_TABLE: TableDefinition<String, String> =
-    TableDefinition::new("channel_quotes");
-
-struct Database {
-    db: Arc<RwLock<redb::Database>>,
-}
-
-impl Database {
-    fn open(path: PathBuf) -> Result<Self, redb::Error> {
-        let db = redb::Database::create(path)?;
-        Ok(Self {
-            db: Arc::new(RwLock::new(db)),
-        })
-    }
-
-    async fn insert_channel_quote(
-        &self,
-        channel_id: String,
-        quote_id: String,
-    ) -> Result<(), redb::Error> {
-        let db = self.db.read().await;
-        let write_tx = db.begin_write()?;
-        {
-            let mut table = write_tx.open_table(CHANNEL_QUOTES_TABLE)?;
-            let _ = table.insert(channel_id, quote_id)?;
-        }
-        write_tx.commit()?;
-        Ok(())
-    }
-
-    async fn get_channel_quote(&self, channel_id: String) -> Result<Option<String>, redb::Error> {
-        let db = self.db.read().await;
-        let read_tx = db.begin_read()?;
-        let table = read_tx.open_table(CHANNEL_QUOTES_TABLE)?;
-        let quote_id = table.get(channel_id)?;
-        Ok(quote_id.map(|v| v.value()))
-    }
 }

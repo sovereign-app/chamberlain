@@ -501,7 +501,6 @@ dependencies = [
  "dirs",
  "prost",
  "prost-types",
- "redb",
  "tokio",
  "tokio-util",
  "tonic",
