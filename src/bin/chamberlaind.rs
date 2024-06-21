@@ -10,7 +10,11 @@ use bitcoin::{
     key::Secp256k1,
     Network,
 };
-use cdk::{mint::Mint, nuts::MintInfo, secp256k1::rand::random};
+use cdk::{
+    mint::Mint,
+    nuts::{MintInfo, MintVersion, Nuts},
+    secp256k1::{rand::random, PublicKey},
+};
 use cdk_axum::start_server;
 use cdk_ldk::{BitcoinClient, Node};
 use cdk_redb::MintRedbDatabase;
@@ -93,13 +97,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     )?;
     let mint = Mint::new(
         mint_xpriv.private_key.as_ref(),
-        MintInfo::default(),
+        MintInfo {
+            name: Some(config.mint_name.clone()),
+            pubkey: Some(PublicKey::from_secret_key(&secp, &mint_xpriv.private_key).into()),
+            version: Some(MintVersion {
+                name: "chamberlain".to_string(),
+                version: env!("CARGO_PKG_VERSION").to_string(),
+            }),
+            description: Some(config.mint_description.clone()),
+            description_long: Some(config.mint_description.clone()),
+            contact: None,
+            nuts: Nuts::default(),
+            motd: None,
+        },
         Arc::new(mint_store),
         cdk::Amount::ZERO,
         0.0,
     )
     .await?;
 
+    // Start servers
     let cancel_token = CancellationToken::new();
 
     tracing::info!("Starting RPC server");
