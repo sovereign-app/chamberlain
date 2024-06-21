@@ -8,6 +8,7 @@ use std::{
 use bitcoin::{
     bip32::{ChildNumber, ExtendedPrivKey},
     key::Secp256k1,
+    Network,
 };
 use cdk::{mint::Mint, nuts::MintInfo, secp256k1::rand::random};
 use cdk_axum::start_server;
@@ -38,7 +39,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create directory if it does not exist
     fs::create_dir_all(config.data_dir())?;
 
-    // Initialize Bitcoin RPC configent
+    // Initialize Bitcoin RPC client
     let rpc_configent = BitcoinClient::new(
         config.bitcoind_rpc_url.as_str(),
         &config.bitcoind_rpc_user,
@@ -57,6 +58,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Load key
     let xpriv = ExtendedPrivKey::decode(&fs::read(&key_file)?)?;
+    if config.network == Network::Bitcoin && xpriv.network != Network::Bitcoin {
+        return Err("Key was not generated for mainnet".into());
+    }
+    if xpriv.network == Network::Bitcoin && config.network != Network::Bitcoin {
+        return Err("Using mainnet key for testing!".into());
+    }
     let secp = Secp256k1::new();
     let node_xpriv = xpriv.ckd_priv(&secp, ChildNumber::from_hardened_idx(0)?)?;
     let mint_xpriv = xpriv.ckd_priv(&secp, ChildNumber::from_hardened_idx(1)?)?;

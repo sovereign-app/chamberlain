@@ -328,9 +328,9 @@ pub enum LogLevel {
 impl Into<EnvFilter> for LogLevel {
     fn into(self) -> EnvFilter {
         match self {
-            LogLevel::Trace => EnvFilter::new("debug,chamberlain=trace"),
+            LogLevel::Trace => EnvFilter::new("debug,cdk=trace,chamberlain=trace"),
             LogLevel::TraceAll => EnvFilter::new("trace"),
-            LogLevel::Debug => EnvFilter::new("info,chamberlain=debug"),
+            LogLevel::Debug => EnvFilter::new("info,cdk=debug,chamberlain=debug"),
             LogLevel::DebugAll => EnvFilter::new("debug"),
             LogLevel::Info => EnvFilter::new("info"),
             LogLevel::Warn => EnvFilter::new("warn"),
