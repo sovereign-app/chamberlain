@@ -132,11 +132,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     });
 
     tracing::info!("Starting HTTP server");
+    let http_addr = SocketAddr::new(config.http_host, config.http_port);
+    let http_node = node.clone();
     let http_cancel_token = cancel_token.clone();
     tokio::spawn(async move {
-        let http_addr = SocketAddr::new(config.http_host, config.http_port);
         tokio::select! {
-            _ = start_server(config.mint_url.as_str(), http_addr, mint, Arc::new(node)) => {}
+            _ = start_server(config.mint_url.as_str(), http_addr, mint, Arc::new(http_node)) => {}
             _ = http_cancel_token.cancelled() => {}
         }
     });
@@ -149,6 +150,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     tracing::info!("Shutdown signal received");
     cancel_token.cancel();
+    node.stop();
 
     Ok(())
 }

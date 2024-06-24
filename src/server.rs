@@ -2,6 +2,7 @@ use std::{
     fs,
     net::{IpAddr, Ipv4Addr},
     path::PathBuf,
+    str::FromStr,
 };
 
 use bitcoin::{consensus::Decodable, Address, Network, Transaction};
@@ -10,7 +11,7 @@ use cdk::{
     cdk_lightning::Amount,
     dhke::construct_proofs,
     mint::Mint,
-    nuts::{CurrencyUnit, MintBolt11Request, PreMintSecrets, Token},
+    nuts::{CurrencyUnit, MeltBolt11Request, MintBolt11Request, PreMintSecrets, Token},
     util::{hex, unix_time},
 };
 use cdk_ldk::{lightning::ln::ChannelId, Node};
@@ -19,9 +20,10 @@ use tracing_subscriber::EnvFilter;
 use url::Url;
 
 use crate::rpc::{
-    chamberlain_server::Chamberlain, ClaimChannelRequest, ClaimChannelResponse, ConnectPeerRequest,
-    ConnectPeerResponse, FundChannelRequest, FundChannelResponse, GetInfoRequest, GetInfoResponse,
-    OpenChannelRequest, OpenChannelResponse,
+    chamberlain_server::Chamberlain, ClaimChannelRequest, ClaimChannelResponse,
+    CloseChannelRequest, CloseChannelResponse, ConnectPeerRequest, ConnectPeerResponse,
+    FundChannelRequest, FundChannelResponse, GetInfoRequest, GetInfoResponse, OpenChannelRequest,
+    OpenChannelResponse, SweepSpendableBalanceRequest, SweepSpendableBalanceResponse,
 };
 
 pub const KEY_FILE: &str = "key";
@@ -52,9 +54,17 @@ impl Chamberlain for RpcServer {
             name: mint_info.name.unwrap_or_default(),
             description: mint_info.description.unwrap_or_default(),
             node_id: node_info.node_id.to_string(),
-            balance: node_info.balance.to_sat(),
-            num_channels: node_info.num_channels as u32,
-            num_peers: node_info.num_peers as u32,
+            channel_balances: node_info
+                .channel_balances
+                .into_iter()
+                .map(|(channel_id, balance)| (channel_id.to_string(), balance.to_sat()))
+                .collect(),
+            peers: node_info
+                .peers
+                .into_iter()
+                .map(|(node_id, addr)| (node_id.to_string(), addr.to_string()))
+                .collect(),
+            spendable_balance: node_info.spendable_balance.to_sat(),
         }))
     }
 
@@ -129,13 +139,8 @@ impl Chamberlain for RpcServer {
         request: Request<FundChannelRequest>,
     ) -> Result<Response<FundChannelResponse>, Status> {
         let request = request.into_inner();
+        let channel_id = parse_channel_id(&request.channel_id)?;
         tracing::info!("Funding channel {}", request.channel_id);
-        let channel_id = ChannelId(
-            hex::decode(request.channel_id)
-                .map_err(|_| Status::invalid_argument("invalid channel id"))?
-                .try_into()
-                .map_err(|_| Status::invalid_argument("invalid channel id"))?,
-        );
         let tx = Transaction::consensus_decode(&mut &request.tx[..])
             .map_err(|_| Status::invalid_argument("invalid transaction"))?;
 
@@ -155,13 +160,8 @@ impl Chamberlain for RpcServer {
         request: Request<ClaimChannelRequest>,
     ) -> Result<Response<ClaimChannelResponse>, Status> {
         let request = request.into_inner();
+        let channel_id = parse_channel_id(&request.channel_id)?;
         tracing::info!("Claiming channel {}", request.channel_id);
-        let channel_id = ChannelId(
-            hex::decode(&request.channel_id)
-                .map_err(|_| Status::internal("invalid channel id"))?
-                .try_into()
-                .map_err(|_| Status::internal("invalid channel id"))?,
-        );
 
         if !self.node.is_channel_ready(channel_id) {
             return Err(Status::failed_precondition("channel not ready"));
@@ -242,6 +242,136 @@ impl Chamberlain for RpcServer {
             token: token.to_string(),
         }))
     }
+
+    async fn close_channel(
+        &self,
+        request: Request<CloseChannelRequest>,
+    ) -> Result<Response<CloseChannelResponse>, Status> {
+        let request = request.into_inner();
+        let channel_id = parse_channel_id(&request.channel_id)?;
+        tracing::info!("Closing channel {}", request.channel_id);
+
+        let address = Address::from_str(&request.address)
+            .map_err(|_| Status::invalid_argument("invalid address"))?
+            .require_network(self.config.network)
+            .map_err(|_| Status::invalid_argument("invalid address network"))?;
+        let token = Token::from_str(&request.token)
+            .map_err(|_| Status::invalid_argument("invalid token"))?;
+        let channel_balance = self
+            .node
+            .get_current_channel_balance(channel_id)
+            .map_err(|_| Status::internal("channel balance not available"))?;
+        let (token_amount, _) = token.token_info();
+        if Amount::from_sat(token_amount.into()) != channel_balance {
+            return Err(Status::invalid_argument("incorrect token amount"));
+        }
+
+        let mut melt_quote = self
+            .mint
+            .new_melt_quote(
+                address.to_string(),
+                CurrencyUnit::Sat,
+                channel_balance.to_sat().into(),
+                cdk::Amount::ZERO,
+                unix_time() + 60,
+            )
+            .await
+            .map_err(|_| Status::internal("melt quote error"))?;
+
+        self.node
+            .close_channel(channel_id, address.script_pubkey())
+            .await
+            .map_err(|_| Status::internal("close channel error"))?;
+
+        melt_quote.paid = true;
+        self.mint
+            .update_melt_quote(melt_quote.clone())
+            .await
+            .map_err(|_| Status::internal("melt quote update error"))?;
+        self.mint
+            .process_melt_request(
+                &MeltBolt11Request {
+                    quote: melt_quote.id,
+                    inputs: token
+                        .token
+                        .into_iter()
+                        .map(|p| p.proofs)
+                        .flatten()
+                        .collect(),
+                    outputs: None,
+                },
+                None,
+                channel_balance.to_sat().into(),
+            )
+            .await
+            .map_err(|_| Status::internal("melt quote process error"))?;
+
+        Ok(Response::new(CloseChannelResponse {}))
+    }
+
+    async fn sweep_spendable_balance(
+        &self,
+        request: Request<SweepSpendableBalanceRequest>,
+    ) -> Result<Response<SweepSpendableBalanceResponse>, Status> {
+        let request = request.into_inner();
+        let address = Address::from_str(&request.address)
+            .map_err(|_| Status::invalid_argument("invalid address"))?
+            .require_network(self.config.network)
+            .map_err(|_| Status::invalid_argument("invalid address network"))?;
+        let token = Token::from_str(&request.token)
+            .map_err(|_| Status::invalid_argument("invalid token"))?;
+
+        let spendable_balance = self
+            .node
+            .get_spendable_output_balance()
+            .await
+            .map_err(|_| Status::internal("spendable output balance error"))?;
+
+        let mut melt_quote = self
+            .mint
+            .new_melt_quote(
+                address.to_string(),
+                CurrencyUnit::Sat,
+                spendable_balance.to_sat().into(),
+                cdk::Amount::ZERO,
+                unix_time() + 60,
+            )
+            .await
+            .map_err(|_| Status::internal("melt quote error"))?;
+
+        melt_quote.paid = true;
+        self.mint
+            .update_melt_quote(melt_quote.clone())
+            .await
+            .map_err(|_| Status::internal("melt quote update error"))?;
+        self.mint
+            .process_melt_request(
+                &MeltBolt11Request {
+                    quote: melt_quote.id,
+                    inputs: token
+                        .token
+                        .into_iter()
+                        .map(|p| p.proofs)
+                        .flatten()
+                        .collect(),
+                    outputs: None,
+                },
+                None,
+                spendable_balance.to_sat().into(),
+            )
+            .await
+            .map_err(|_| Status::internal("melt quote process error"))?;
+
+        let txid = self
+            .node
+            .sweep_spendable_outputs(address.script_pubkey())
+            .await
+            .map_err(|_| Status::internal("sweep spendable outputs error"))?;
+
+        Ok(Response::new(SweepSpendableBalanceResponse {
+            txid: txid.to_string(),
+        }))
+    }
 }
 
 fn map_mint_error(e: cdk::mint::error::Error) -> Status {
@@ -250,6 +380,15 @@ fn map_mint_error(e: cdk::mint::error::Error) -> Status {
 
 fn map_ldk_error(e: cdk_ldk::Error) -> Status {
     Status::internal(e.to_string())
+}
+
+fn parse_channel_id(channel_id: &str) -> Result<ChannelId, Status> {
+    Ok(ChannelId(
+        hex::decode(channel_id)
+            .map_err(|_| Status::invalid_argument("invalid channel id"))?
+            .try_into()
+            .map_err(|_| Status::invalid_argument("invalid channel id"))?,
+    ))
 }
 
 macro_rules! create_config_structs {

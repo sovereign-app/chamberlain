@@ -8,6 +8,8 @@ service Chamberlain {
     rpc OpenChannel(OpenChannelRequest) returns (OpenChannelResponse) {}
     rpc FundChannel(FundChannelRequest) returns (FundChannelResponse) {}
     rpc ClaimChannel(ClaimChannelRequest) returns (ClaimChannelResponse) {}
+    rpc CloseChannel(CloseChannelRequest) returns (CloseChannelResponse) {}
+    rpc SweepSpendableBalance(SweepSpendableBalanceRequest) returns (SweepSpendableBalanceResponse) {}
 }
 
 message GetInfoRequest {
@@ -17,9 +19,9 @@ message GetInfoResponse {
     string name = 1;
     string description = 2;
     string node_id = 3;
-    uint64 balance = 4;
-    uint32 num_channels = 5;
-    uint32 num_peers = 6;
+    map<string, uint64> channel_balances = 4;
+    map<string, string> peers = 5;
+    uint64 spendable_balance = 6;
 }
 
 message ConnectPeerRequest {
@@ -57,4 +59,22 @@ message ClaimChannelRequest {
 
 message ClaimChannelResponse {
     string token = 1;
+}
+
+message CloseChannelRequest {
+    string channel_id = 1;
+    string address = 2;
+    string token = 3;
+}
+
+message CloseChannelResponse {
+}
+
+message SweepSpendableBalanceRequest {
+    string address = 1;
+    string token = 2;
+}
+
+message SweepSpendableBalanceResponse {
+    string txid = 1;
 }

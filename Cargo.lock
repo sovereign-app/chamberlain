@@ -394,14 +394,14 @@ checksum = "514de17de45fdb8dc022b1a7975556c53c86f9f0aa5f534b98977b171857c2c9"
 
 [[package]]
 name = "cc"
-version = "1.0.99"
+version = "1.0.100"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "96c51067fd44124faa7f870b4b1c969379ad32b2ba805aa959430ceaa384f695"
+checksum = "c891175c3fb232128f48de6590095e59198bbeb8620c310be349bfc3afd12c7b"
 
 [[package]]
 name = "cdk"
 version = "0.1.0"
-source = "git+https://github.com/davidcaseria/cdk?branch=ldk#ead637cc2ee3d2cce6185eec85b977d1dd3e533f"
+source = "git+https://github.com/davidcaseria/cdk?branch=ldk#90bf362372465099204f88ab5ded1bc0398df5c6"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -428,7 +428,7 @@ dependencies = [
 [[package]]
 name = "cdk-axum"
 version = "0.1.0"
-source = "git+https://github.com/davidcaseria/cdk?branch=ldk#ead637cc2ee3d2cce6185eec85b977d1dd3e533f"
+source = "git+https://github.com/davidcaseria/cdk?branch=ldk#90bf362372465099204f88ab5ded1bc0398df5c6"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -444,7 +444,7 @@ dependencies = [
 [[package]]
 name = "cdk-ldk"
 version = "0.1.0"
-source = "git+https://github.com/davidcaseria/cdk?branch=ldk#ead637cc2ee3d2cce6185eec85b977d1dd3e533f"
+source = "git+https://github.com/davidcaseria/cdk?branch=ldk#90bf362372465099204f88ab5ded1bc0398df5c6"
 dependencies = [
  "async-stream",
  "async-trait",
@@ -470,7 +470,7 @@ dependencies = [
 [[package]]
 name = "cdk-redb"
 version = "0.1.0"
-source = "git+https://github.com/davidcaseria/cdk?branch=ldk#ead637cc2ee3d2cce6185eec85b977d1dd3e533f"
+source = "git+https://github.com/davidcaseria/cdk?branch=ldk#90bf362372465099204f88ab5ded1bc0398df5c6"
 dependencies = [
  "async-trait",
  "cdk",
@@ -1150,9 +1150,9 @@ dependencies = [
 
 [[package]]
 name = "lazy_static"
-version = "1.4.0"
+version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
+checksum = "bbd2bcb4c963f2ddae06a2efc7e9f3591312473c50c6685e1f298068316e66fe"
 
 [[package]]
 name = "libc"
@@ -1969,9 +1969,9 @@ checksum = "0d0208408ba0c3df17ed26eb06992cb1a1268d41b2c0e12e65203fbe3972cee5"
 
 [[package]]
 name = "syn"
-version = "2.0.67"
+version = "2.0.68"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ff8655ed1d86f3af4ee3fd3263786bc14245ad17c4c7e85ba7187fb3ae028c90"
+checksum = "901fa70d88b9d6c98022e23b4136f9f3e54e4662c3bc1bd1d84a42a9a0f0c1e9"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2401,9 +2401,9 @@ checksum = "06abde3611657adf66d383f00b093d7faecc7fa57071cce2578660c9f1010821"
 
 [[package]]
 name = "uuid"
-version = "1.8.0"
+version = "1.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a183cf7feeba97b4dd1c0d46788634f6221d87fa961b305bed08c851829efcc0"
+checksum = "3ea73390fe27785838dcbf75b91b1d84799e28f1ce71e6f372a5dc2200c80de5"
 dependencies = [
  "getrandom",
 ]

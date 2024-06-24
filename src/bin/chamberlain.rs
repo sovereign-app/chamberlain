@@ -79,7 +79,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("name:        {}", info.name);
             println!("description: {}", info.description);
             println!("node id:     {}", info.node_id);
-            println!("balance:     {} sat", info.balance);
+            println!(
+                "balance:     {} sat",
+                info.channel_balances.values().sum::<u64>()
+            );
+            if info.spendable_balance > 0 {
+                println!("spendable:   {} sat", info.spendable_balance);
+            }
+            println!("channels:");
+            for (id, balance) in info.channel_balances {
+                println!("- {}: {} sat", id, balance);
+            }
+            println!("peers:");
+            for (id, addr) in info.peers {
+                println!("- {}: {}", id, addr);
+            }
         }
         Commands::ConnectPeer { node_id, addr } => {
             client
