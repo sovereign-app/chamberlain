@@ -19,7 +19,7 @@ struct Cli {
     addr: Url,
 
     /// Bitcoin Network
-    #[arg(short, long, default_value = "regtest")]
+    #[arg(short, long, default_value = "bitcoin")]
     network: Network,
 
     #[command(subcommand)]
