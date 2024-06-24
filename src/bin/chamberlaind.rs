@@ -16,7 +16,10 @@ use cdk::{
     secp256k1::{rand::random, PublicKey},
 };
 use cdk_axum::start_server;
-use cdk_ldk::{BitcoinClient, Node};
+use cdk_ldk::{
+    lightning::util::config::{ChannelHandshakeConfig, ChannelHandshakeLimits, UserConfig},
+    BitcoinClient, Node,
+};
 use cdk_redb::MintRedbDatabase;
 use chamberlain::{
     rpc::chamberlain_server::ChamberlainServer,
@@ -45,7 +48,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     fs::create_dir_all(config.data_dir())?;
 
     // Initialize Bitcoin RPC client
-    let rpc_configent = BitcoinClient::new(
+    let rpc_client = BitcoinClient::new(
         config.bitcoind_rpc_url.as_str(),
         &config.bitcoind_rpc_user,
         &config.bitcoind_rpc_password,
@@ -75,11 +78,28 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Start lightning node
     tracing::info!("Starting lightning node");
+    let ln_config = UserConfig {
+        accept_forwards_to_priv_channels: true,
+        accept_inbound_channels: true,
+        channel_handshake_config: ChannelHandshakeConfig {
+            minimum_depth: 3,
+            negotiate_anchors_zero_fee_htlc_tx: false,
+            ..Default::default()
+        },
+        channel_handshake_limits: ChannelHandshakeLimits {
+            force_announced_channel_preference: false,
+            their_to_self_delay: 2016,
+            max_funding_satoshis: 100_000_000,
+            ..Default::default()
+        },
+        ..Default::default()
+    };
     let node = Node::start(
         config.data_dir().join(NODE_DIR),
         config.network,
-        rpc_configent,
+        rpc_client,
         *node_xpriv.private_key.as_ref(),
+        ln_config,
         Some(SocketAddr::V4(SocketAddrV4::new(
             Ipv4Addr::UNSPECIFIED,
             config.lightning_port,
