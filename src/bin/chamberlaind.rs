@@ -34,6 +34,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Setup logging and tracing
     let subscriber = tracing_subscriber::fmt::Subscriber::builder()
+        .with_ansi(false)
         .with_env_filter(config.log_level)
         .finish();
     tracing::subscriber::set_global_default(subscriber)?;
