@@ -108,6 +108,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             if info.spendable_balance > 0 {
                 println!("spendable:   {} sat", info.spendable_balance);
             }
+            println!("inbound:     {} sat", info.inbound_liquidity);
             println!("channels:");
             for (id, balance) in info.channel_balances {
                 println!("- {}: {} sat", id, balance);

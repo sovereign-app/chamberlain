@@ -65,6 +65,7 @@ impl Chamberlain for RpcServer {
                 .map(|(node_id, addr)| (node_id.to_string(), addr.to_string()))
                 .collect(),
             spendable_balance: node_info.spendable_balance.to_sat(),
+            inbound_liquidity: node_info.inbound_liquidity.to_sat(),
         }))
     }
 

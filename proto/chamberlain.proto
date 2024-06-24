@@ -22,6 +22,7 @@ message GetInfoResponse {
     map<string, uint64> channel_balances = 4;
     map<string, string> peers = 5;
     uint64 spendable_balance = 6;
+    uint64 inbound_liquidity = 7;
 }
 
 message ConnectPeerRequest {
