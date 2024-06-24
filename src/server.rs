@@ -1,6 +1,6 @@
 use std::{
     fs,
-    net::{IpAddr, Ipv4Addr},
+    net::{IpAddr, Ipv4Addr, SocketAddr},
     path::PathBuf,
     str::FromStr,
 };
@@ -445,14 +445,16 @@ create_config_structs!(
     (bitcoind_rpc_url: Url, "Bitcoind RPC URL"),
     (bitcoind_rpc_user: String, "Bitcoind RPC user"),
     (bitcoind_rpc_password: String, "Bitcoind RPC password"),
-    (lightning_port: u16, "Lightning network p2p port"),
+    (lightning_port: u16, "Lightning Network p2p port"),
+    (lightning_announce_addr: SocketAddr, "Lightning Network announce address"),
     (rpc_host: IpAddr, "Host IP to bind the RPC server"),
     (rpc_port: u16, "Port to bind the RPC server"),
     (http_host: IpAddr, "Host IP to bind the HTTP server"),
     (http_port: u16, "Port to bind the HTTP server"),
     (mint_url: Url, "Mint URL"),
-    (mint_name: String, "Mint name"),
+    (mint_name: String, "Mint name and LN alias"),
     (mint_description: String, "Mint description"),
+    (mint_color: String, "Mint LN alias color"),
     (log_level: LogLevel, "Log level"),
     (unmanaged: bool, "Unmanaged mode"),
 );
@@ -520,6 +522,14 @@ impl Config {
             self.data_dir.clone()
         }
     }
+
+    pub fn mint_color(&self) -> [u8; 3] {
+        let color = self.mint_color.trim_start_matches('#');
+        let r = u8::from_str_radix(&color[0..2], 16).unwrap_or(0);
+        let g = u8::from_str_radix(&color[2..4], 16).unwrap_or(0);
+        let b = u8::from_str_radix(&color[4..6], 16).unwrap_or(0);
+        [r, g, b]
+    }
 }
 
 impl Default for Config {
@@ -531,13 +541,15 @@ impl Default for Config {
             bitcoind_rpc_user: "user".to_string(),
             bitcoind_rpc_password: "password".to_string(),
             lightning_port: 9735,
+            lightning_announce_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 9735),
             rpc_host: IpAddr::V4(Ipv4Addr::LOCALHOST),
             rpc_port: 3339,
             http_host: IpAddr::V4(Ipv4Addr::LOCALHOST),
             http_port: 3338,
             mint_url: "http://localhost:3338".parse().unwrap(),
             mint_name: "Chamberlain".to_string(),
-            mint_description: "Chamberlain mint".to_string(),
+            mint_description: "A Chamberlain powered cashu mint".to_string(),
+            mint_color: "#853DB5".to_string(),
             log_level: LogLevel::Info,
             unmanaged: false,
         }

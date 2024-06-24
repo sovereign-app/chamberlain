@@ -1,8 +1,9 @@
 use std::{
     fs,
     io::Write,
-    net::{Ipv4Addr, SocketAddr, SocketAddrV4},
+    net::{Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4},
     sync::Arc,
+    time::Duration,
 };
 
 use bitcoin::{
@@ -156,13 +157,39 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let http_addr = SocketAddr::new(config.http_host, config.http_port);
     let http_node = node.clone();
     let http_cancel_token = cancel_token.clone();
+    let mint_url = config.mint_url.clone();
     tokio::spawn(async move {
         tokio::select! {
-            _ = start_server(config.mint_url.as_str(), http_addr, mint, Arc::new(http_node)) => {}
+            _ = start_server(mint_url.as_str(), http_addr, mint, Arc::new(http_node)) => {}
             _ = http_cancel_token.cancelled() => {}
         }
     });
 
+    // Periodically broadcast node announcement
+    if config.lightning_announce_addr.ip() != Ipv4Addr::LOCALHOST
+        && config.lightning_announce_addr.ip() != Ipv6Addr::LOCALHOST
+    {
+        let alias = config.mint_name.clone();
+        let color = config.mint_color();
+        let addrs = vec![config.lightning_announce_addr];
+        let announce_node = node.clone();
+        let announcement_cancel_token = cancel_token.clone();
+        tokio::spawn(async move {
+            loop {
+                match announce_node.announce_node(&alias, color, addrs.clone()) {
+                    Ok(_) => {
+                        tracing::debug!("Announced node");
+                    }
+                    Err(e) => tracing::error!("Failed to announce node: {}", e),
+                }
+                tokio::select! {
+                    _ = tokio::time::sleep(Duration::from_secs(3600)) => {}
+                    _ = announcement_cancel_token.cancelled() => break,
+
+                }
+            }
+        });
+    }
     let mut sigint = tokio::signal::unix::signal(SignalKind::interrupt())?;
     let mut sigterm = tokio::signal::unix::signal(SignalKind::terminate())?;
     tokio::select! {
