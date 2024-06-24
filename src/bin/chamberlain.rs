@@ -3,8 +3,9 @@ use std::net::SocketAddr;
 use bitcoin::Network;
 use cdk::util::hex;
 use chamberlain::rpc::{
-    chamberlain_client::ChamberlainClient, ClaimChannelRequest, ConnectPeerRequest,
-    FundChannelRequest, GetInfoRequest, OpenChannelRequest,
+    chamberlain_client::ChamberlainClient, ClaimChannelRequest, CloseChannelRequest,
+    ConnectPeerRequest, FundChannelRequest, GetInfoRequest, OpenChannelRequest,
+    SweepSpendableBalanceRequest,
 };
 use clap::{Parser, Subcommand};
 use tonic::Request;
@@ -64,6 +65,27 @@ enum Commands {
         /// Quote ID
         #[arg(long)]
         quote_id: String,
+    },
+    /// Close channel
+    CloseChannel {
+        /// Channel ID
+        #[arg(long)]
+        channel_id: String,
+        /// Token
+        #[arg(long)]
+        token: String,
+        /// Address
+        #[arg(long)]
+        address: String,
+    },
+    /// Sweep spendable funds
+    SweepSpendableBalance {
+        /// Address
+        #[arg(long)]
+        address: String,
+        /// Token
+        #[arg(long)]
+        token: String,
     },
 }
 
@@ -134,6 +156,29 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .await?
                 .into_inner();
             println!("{}", response.token);
+        }
+        Commands::CloseChannel {
+            channel_id,
+            token,
+            address,
+        } => {
+            client
+                .close_channel(Request::new(CloseChannelRequest {
+                    channel_id,
+                    token,
+                    address,
+                }))
+                .await?;
+        }
+        Commands::SweepSpendableBalance { address, token } => {
+            let res = client
+                .sweep_spendable_balance(Request::new(SweepSpendableBalanceRequest {
+                    address,
+                    token,
+                }))
+                .await?
+                .into_inner();
+            println!("txid: {}", res.txid);
         }
     }
 

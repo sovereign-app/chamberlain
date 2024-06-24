@@ -112,7 +112,7 @@ impl Chamberlain for RpcServer {
             .await
             .map_err(map_ldk_error)?;
         let address = Address::from_script(&channel.funding_script, self.config.network)
-            .map_err(|_| Status::internal("invalid script"))?;
+            .map_err(|e| map_internal_error(e, "address error"))?;
 
         let mint_quote = self
             .mint
@@ -124,7 +124,7 @@ impl Chamberlain for RpcServer {
                 unix_time() + 3600,
             )
             .await
-            .map_err(|_| Status::internal("mint quote failed"))?;
+            .map_err(|e| map_internal_error(e, "mint quote failed"))?;
         tracing::info!("Created mint quote for channel open: {}", mint_quote.id);
 
         Ok(Response::new(OpenChannelResponse {
@@ -171,7 +171,7 @@ impl Chamberlain for RpcServer {
             .mint
             .keysets()
             .await
-            .map_err(|_| Status::internal("loading keysets error"))?
+            .map_err(|e| map_internal_error(e, "loading keysets error"))?
             .keysets
             .into_iter()
             .filter_map(|k| {
@@ -187,7 +187,7 @@ impl Chamberlain for RpcServer {
             .mint
             .keyset_pubkeys(&keyset_id)
             .await
-            .map_err(|_| Status::internal("loading keyset public keys error"))?
+            .map_err(|e| map_internal_error(e, "loading keyset public keys error"))?
             .keysets
             .into_iter()
             .next()
@@ -198,7 +198,7 @@ impl Chamberlain for RpcServer {
             .mint
             .mint_quotes()
             .await
-            .map_err(|_| Status::internal("mint quotes error"))?
+            .map_err(|e| map_internal_error(e, "mint quotes error"))?
             .into_iter()
             .find(|q| q.id == request.quote_id)
             .ok_or(Status::not_found("quote not found"))?;
@@ -207,7 +207,7 @@ impl Chamberlain for RpcServer {
                 .node
                 .get_open_channel_value(channel_id)
                 .await
-                .map_err(|_| Status::internal("channel db error"))?
+                .map_err(|e| map_internal_error(e, "channel db error"))?
                 .to_sat()
         {
             return Err(Status::failed_precondition("quote amount incorrect"));
@@ -216,10 +216,10 @@ impl Chamberlain for RpcServer {
         self.mint
             .update_mint_quote(quote.clone())
             .await
-            .map_err(|_| Status::internal("mint quote update failed"))?;
+            .map_err(|e| map_internal_error(e, "mint quote update failed"))?;
 
         let secrets = PreMintSecrets::random(keyset_id, quote.amount, &SplitTarget::None)
-            .map_err(|_| Status::internal("secrets generation error"))?;
+            .map_err(|e| map_internal_error(e, "secrets generation error"))?;
         let res = self
             .mint
             .process_mint_request(MintBolt11Request {
@@ -227,16 +227,16 @@ impl Chamberlain for RpcServer {
                 outputs: secrets.blinded_messages(),
             })
             .await
-            .map_err(|_| Status::internal("mint processing error"))?;
+            .map_err(|e| map_internal_error(e, "mint processing error"))?;
         let proofs = construct_proofs(res.signatures, secrets.rs(), secrets.secrets(), &keys)
-            .map_err(|_| Status::internal("construct proofs error"))?;
+            .map_err(|e| map_internal_error(e, "construct proofs error"))?;
         let token = Token::new(
             self.config.mint_url.clone().into(),
             proofs,
             None,
             Some(CurrencyUnit::Sat),
         )
-        .map_err(|_| Status::internal("token creation error"))?;
+        .map_err(|e| map_internal_error(e, "token creation error"))?;
 
         Ok(Response::new(ClaimChannelResponse {
             token: token.to_string(),
@@ -260,7 +260,7 @@ impl Chamberlain for RpcServer {
         let channel_balance = self
             .node
             .get_current_channel_balance(channel_id)
-            .map_err(|_| Status::internal("channel balance not available"))?;
+            .map_err(|e| map_internal_error(e, "channel balance not available"))?;
         let (token_amount, _) = token.token_info();
         if Amount::from_sat(token_amount.into()) != channel_balance {
             return Err(Status::invalid_argument("incorrect token amount"));
@@ -276,18 +276,18 @@ impl Chamberlain for RpcServer {
                 unix_time() + 60,
             )
             .await
-            .map_err(|_| Status::internal("melt quote error"))?;
+            .map_err(|e| map_internal_error(e, "melt quote error"))?;
 
         self.node
             .close_channel(channel_id, address.script_pubkey())
             .await
-            .map_err(|_| Status::internal("close channel error"))?;
+            .map_err(|e| map_internal_error(e, "close channel error"))?;
 
         melt_quote.paid = true;
         self.mint
             .update_melt_quote(melt_quote.clone())
             .await
-            .map_err(|_| Status::internal("melt quote update error"))?;
+            .map_err(|e| map_internal_error(e, "melt quote update error"))?;
         self.mint
             .process_melt_request(
                 &MeltBolt11Request {
@@ -304,7 +304,7 @@ impl Chamberlain for RpcServer {
                 channel_balance.to_sat().into(),
             )
             .await
-            .map_err(|_| Status::internal("melt quote process error"))?;
+            .map_err(|e| map_internal_error(e, "melt quote process error"))?;
 
         Ok(Response::new(CloseChannelResponse {}))
     }
@@ -325,7 +325,7 @@ impl Chamberlain for RpcServer {
             .node
             .get_spendable_output_balance()
             .await
-            .map_err(|_| Status::internal("spendable output balance error"))?;
+            .map_err(|e| map_internal_error(e, "spendable output balance error"))?;
 
         let mut melt_quote = self
             .mint
@@ -337,13 +337,13 @@ impl Chamberlain for RpcServer {
                 unix_time() + 60,
             )
             .await
-            .map_err(|_| Status::internal("melt quote error"))?;
+            .map_err(|e| map_internal_error(e, "melt quote error"))?;
 
         melt_quote.paid = true;
         self.mint
             .update_melt_quote(melt_quote.clone())
             .await
-            .map_err(|_| Status::internal("melt quote update error"))?;
+            .map_err(|e| map_internal_error(e, "melt quote update error"))?;
         self.mint
             .process_melt_request(
                 &MeltBolt11Request {
@@ -360,18 +360,23 @@ impl Chamberlain for RpcServer {
                 spendable_balance.to_sat().into(),
             )
             .await
-            .map_err(|_| Status::internal("melt quote process error"))?;
+            .map_err(|e| map_internal_error(e, "melt quote process error"))?;
 
         let txid = self
             .node
             .sweep_spendable_outputs(address.script_pubkey())
             .await
-            .map_err(|_| Status::internal("sweep spendable outputs error"))?;
+            .map_err(|e| map_internal_error(e, "sweep spendable outputs error"))?;
 
         Ok(Response::new(SweepSpendableBalanceResponse {
             txid: txid.to_string(),
         }))
     }
+}
+
+fn map_internal_error<E: ToString>(e: E, msg: &str) -> Status {
+    tracing::error!("{}: {}", msg, e.to_string());
+    Status::internal(msg)
 }
 
 fn map_mint_error(e: cdk::mint::error::Error) -> Status {
