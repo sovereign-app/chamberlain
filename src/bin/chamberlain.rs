@@ -3,9 +3,9 @@ use std::net::SocketAddr;
 use bitcoin::Network;
 use cdk::util::hex;
 use chamberlain::rpc::{
-    chamberlain_client::ChamberlainClient, ClaimChannelRequest, CloseChannelRequest,
-    ConnectPeerRequest, FundChannelRequest, GetInfoRequest, OpenChannelRequest,
-    SweepSpendableBalanceRequest,
+    chamberlain_client::ChamberlainClient, AnnounceNodeRequest, ClaimChannelRequest,
+    CloseChannelRequest, ConnectPeerRequest, FundChannelRequest, GetInfoRequest,
+    OpenChannelRequest, SweepSpendableBalanceRequest,
 };
 use clap::{Parser, Subcommand};
 use tonic::Request;
@@ -30,6 +30,12 @@ struct Cli {
 enum Commands {
     /// Get info
     GetInfo,
+    /// Announce node
+    AnnounceNode {
+        /// IP Address
+        #[arg(long)]
+        addr: SocketAddr,
+    },
     /// Connect to a peer
     ConnectPeer {
         /// Node ID
@@ -119,6 +125,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             for (id, addr) in info.peers {
                 println!("- {}: {}", id, addr);
             }
+        }
+        Commands::AnnounceNode { addr } => {
+            client
+                .announce_node(Request::new(AnnounceNodeRequest {
+                    ip_address: addr.to_string(),
+                }))
+                .await?;
         }
         Commands::ConnectPeer { node_id, addr } => {
             client

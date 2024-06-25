@@ -4,6 +4,7 @@ package chamberlain;
 
 service Chamberlain {
     rpc GetInfo(GetInfoRequest) returns (GetInfoResponse) {}
+    rpc AnnounceNode(AnnounceNodeRequest) returns (AnnounceNodeResponse) {}
     rpc ConnectPeer(ConnectPeerRequest) returns (ConnectPeerResponse) {}
     rpc OpenChannel(OpenChannelRequest) returns (OpenChannelResponse) {}
     rpc FundChannel(FundChannelRequest) returns (FundChannelResponse) {}
@@ -25,6 +26,13 @@ message GetInfoResponse {
     uint64 inbound_liquidity = 7;
     uint32 network_nodes = 8;
     uint32 network_channels = 9;
+}
+
+message AnnounceNodeRequest {
+    string ip_address = 1;
+}
+
+message AnnounceNodeResponse {
 }
 
 message ConnectPeerRequest {

@@ -20,10 +20,11 @@ use tracing_subscriber::EnvFilter;
 use url::Url;
 
 use crate::rpc::{
-    chamberlain_server::Chamberlain, ClaimChannelRequest, ClaimChannelResponse,
-    CloseChannelRequest, CloseChannelResponse, ConnectPeerRequest, ConnectPeerResponse,
-    FundChannelRequest, FundChannelResponse, GetInfoRequest, GetInfoResponse, OpenChannelRequest,
-    OpenChannelResponse, SweepSpendableBalanceRequest, SweepSpendableBalanceResponse,
+    chamberlain_server::Chamberlain, AnnounceNodeRequest, AnnounceNodeResponse,
+    ClaimChannelRequest, ClaimChannelResponse, CloseChannelRequest, CloseChannelResponse,
+    ConnectPeerRequest, ConnectPeerResponse, FundChannelRequest, FundChannelResponse,
+    GetInfoRequest, GetInfoResponse, OpenChannelRequest, OpenChannelResponse,
+    SweepSpendableBalanceRequest, SweepSpendableBalanceResponse,
 };
 
 pub const KEY_FILE: &str = "key";
@@ -69,6 +70,21 @@ impl Chamberlain for RpcServer {
             network_nodes: node_info.network_nodes as u32,
             network_channels: node_info.network_channels as u32,
         }))
+    }
+
+    async fn announce_node(
+        &self,
+        request: Request<AnnounceNodeRequest>,
+    ) -> Result<Response<AnnounceNodeResponse>, Status> {
+        let request = request.into_inner();
+        let addrs = vec![request
+            .ip_address
+            .parse()
+            .map_err(|_| Status::invalid_argument("invalid ip address"))?];
+        self.node
+            .announce_node(&self.config.mint_name, self.config.mint_color(), addrs)
+            .map_err(map_ldk_error)?;
+        Ok(Response::new(AnnounceNodeResponse {}))
     }
 
     async fn connect_peer(
