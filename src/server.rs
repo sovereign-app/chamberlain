@@ -81,6 +81,7 @@ impl Chamberlain for RpcServer {
             .ip_address
             .parse()
             .map_err(|_| Status::invalid_argument("invalid ip address"))?];
+        tracing::info!("Announcing node with address: {}", addrs[0]);
         self.node
             .announce_node(&self.config.mint_name, self.config.mint_color(), addrs)
             .map_err(map_ldk_error)?;
