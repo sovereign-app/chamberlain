@@ -401,7 +401,7 @@ checksum = "c891175c3fb232128f48de6590095e59198bbeb8620c310be349bfc3afd12c7b"
 [[package]]
 name = "cdk"
 version = "0.1.0"
-source = "git+https://github.com/davidcaseria/cdk?branch=ldk#a0a7b6607116bd2b2c9504e3aa8cfebc34701e2c"
+source = "git+https://github.com/davidcaseria/cdk?branch=ldk#c8cdc800486069a38bbb1bd42d6d07f9f9fa5456"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -428,7 +428,7 @@ dependencies = [
 [[package]]
 name = "cdk-axum"
 version = "0.1.0"
-source = "git+https://github.com/davidcaseria/cdk?branch=ldk#a0a7b6607116bd2b2c9504e3aa8cfebc34701e2c"
+source = "git+https://github.com/davidcaseria/cdk?branch=ldk#c8cdc800486069a38bbb1bd42d6d07f9f9fa5456"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -444,7 +444,7 @@ dependencies = [
 [[package]]
 name = "cdk-ldk"
 version = "0.1.0"
-source = "git+https://github.com/davidcaseria/cdk?branch=ldk#a0a7b6607116bd2b2c9504e3aa8cfebc34701e2c"
+source = "git+https://github.com/davidcaseria/cdk?branch=ldk#c8cdc800486069a38bbb1bd42d6d07f9f9fa5456"
 dependencies = [
  "async-stream",
  "async-trait",
@@ -459,7 +459,9 @@ dependencies = [
  "lightning-block-sync",
  "lightning-net-tokio",
  "lightning-persister",
+ "lightning-rapid-gossip-sync",
  "redb",
+ "reqwest",
  "serde",
  "thiserror",
  "tokio",
@@ -470,7 +472,7 @@ dependencies = [
 [[package]]
 name = "cdk-redb"
 version = "0.1.0"
-source = "git+https://github.com/davidcaseria/cdk?branch=ldk#a0a7b6607116bd2b2c9504e3aa8cfebc34701e2c"
+source = "git+https://github.com/davidcaseria/cdk?branch=ldk#c8cdc800486069a38bbb1bd42d6d07f9f9fa5456"
 dependencies = [
  "async-trait",
  "cdk",
