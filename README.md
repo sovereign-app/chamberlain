@@ -1,7 +1,9 @@
 # Chamberlain
 > Cashu Mint with Integrated Lightning Node
 
-**Alpha Notice**: This software is currently in alpha-testing. Use at your own risk.
+**Alpha Notice**: The software is currently in alpha-testing. Use at your own risk.
+
+This project aims to substantially increase the number of [Uncle Jims](https://thebitcoinmanual.com/behind-btc/nodes/uncle-jim-node/) running mints who can manage day-to-day Bitcoin transactions for their friends and family.
 
 ## Running the Mint
 
