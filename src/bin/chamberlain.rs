@@ -98,17 +98,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Commands::GetInfo => {
             let response = client.get_info(Request::new(GetInfoRequest {})).await?;
             let info = response.into_inner();
-            println!("name:        {}", info.name);
-            println!("description: {}", info.description);
-            println!("node id:     {}", info.node_id);
+            println!("name:             {}", info.name);
+            println!("description:      {}", info.description);
+            println!("node id:          {}", info.node_id);
             println!(
-                "balance:     {} sat",
+                "balance:          {} sat",
                 info.channel_balances.values().sum::<u64>()
             );
             if info.spendable_balance > 0 {
-                println!("spendable:   {} sat", info.spendable_balance);
+                println!("spendable:        {} sat", info.spendable_balance);
             }
-            println!("inbound:     {} sat", info.inbound_liquidity);
+            println!("inbound:          {} sat", info.inbound_liquidity);
+            println!("network nodes:    {}", info.network_nodes);
+            println!("network channels: {}", info.network_channels);
             println!("channels:");
             for (id, balance) in info.channel_balances {
                 println!("- {}: {} sat", id, balance);

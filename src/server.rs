@@ -66,6 +66,8 @@ impl Chamberlain for RpcServer {
                 .collect(),
             spendable_balance: node_info.spendable_balance.to_sat(),
             inbound_liquidity: node_info.inbound_liquidity.to_sat(),
+            network_nodes: node_info.network_nodes as u32,
+            network_channels: node_info.network_channels as u32,
         }))
     }
 
@@ -549,7 +551,7 @@ impl Default for Config {
             http_port: 3338,
             mint_url: "http://localhost:3338".parse().unwrap(),
             mint_name: "Chamberlain".to_string(),
-            mint_description: "A Chamberlain powered cashu mint".to_string(),
+            mint_description: "A chamberlain powered cashu mint".to_string(),
             mint_color: "#853DB5".to_string(),
             log_level: LogLevel::Info,
             unmanaged: false,
