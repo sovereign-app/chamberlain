@@ -36,6 +36,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
     let config = Config::load(cli);
 
+    if !config.unmanaged {
+        return Err(
+            "Managed mode is not yet supported. Run chamberlaind with --unmanaged=true.".into(),
+        );
+    }
+
     // Setup logging and tracing
     let subscriber = tracing_subscriber::fmt::Subscriber::builder()
         .with_ansi(false)
