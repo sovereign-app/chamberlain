@@ -116,14 +116,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Start mint
     tracing::info!("Starting mint");
-    let mint_store = MintRedbDatabase::new(
-        config
-            .data_dir()
-            .join(MINT_DB_FILE)
-            .to_str()
-            .ok_or("mint directory error")?,
-    )?;
+    let mint_store = MintRedbDatabase::new(&config.data_dir().join(MINT_DB_FILE))?;
     let mint = Mint::new(
+        config.mint_url.as_str(),
         mint_xpriv.private_key.as_ref(),
         MintInfo {
             name: Some(config.mint_name.clone()),

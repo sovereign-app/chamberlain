@@ -49,11 +49,11 @@ impl Chamberlain for RpcServer {
         &self,
         _request: Request<GetInfoRequest>,
     ) -> Result<Response<GetInfoResponse>, Status> {
-        let mint_info = self.mint.mint_info().map_err(map_mint_error)?;
+        let mint_info = self.mint.mint_info();
         let node_info = self.node.get_info().await.map_err(map_ldk_error)?;
         Ok(Response::new(GetInfoResponse {
-            name: mint_info.name.unwrap_or_default(),
-            description: mint_info.description.unwrap_or_default(),
+            name: mint_info.name.clone().unwrap_or_default(),
+            description: mint_info.description.clone().unwrap_or_default(),
             node_id: node_info.node_id.to_string(),
             channel_balances: node_info
                 .channel_balances
@@ -397,10 +397,6 @@ impl Chamberlain for RpcServer {
 fn map_internal_error<E: ToString>(e: E, msg: &str) -> Status {
     tracing::error!("{}: {}", msg, e.to_string());
     Status::internal(msg)
-}
-
-fn map_mint_error(e: cdk::mint::error::Error) -> Status {
-    Status::internal(e.to_string())
 }
 
 fn map_ldk_error(e: cdk_ldk::Error) -> Status {
