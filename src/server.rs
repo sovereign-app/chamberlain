@@ -11,7 +11,10 @@ use cdk::{
     cdk_lightning::Amount,
     dhke::construct_proofs,
     mint::Mint,
-    nuts::{CurrencyUnit, MeltBolt11Request, MintBolt11Request, PreMintSecrets, Token},
+    nuts::{
+        CurrencyUnit, MeltBolt11Request, MeltQuoteState, MintBolt11Request, MintQuoteState,
+        PreMintSecrets, Token,
+    },
     util::{hex, unix_time},
 };
 use cdk_ldk::{lightning::ln::ChannelId, Node};
@@ -232,7 +235,7 @@ impl Chamberlain for RpcServer {
         {
             return Err(Status::failed_precondition("quote amount incorrect"));
         }
-        quote.paid = true;
+        quote.state = MintQuoteState::Paid;
         self.mint
             .update_mint_quote(quote.clone())
             .await
@@ -303,7 +306,7 @@ impl Chamberlain for RpcServer {
             .await
             .map_err(|e| map_internal_error(e, "close channel error"))?;
 
-        melt_quote.paid = true;
+        melt_quote.state = MeltQuoteState::Paid;
         self.mint
             .update_melt_quote(melt_quote.clone())
             .await
@@ -359,7 +362,7 @@ impl Chamberlain for RpcServer {
             .await
             .map_err(|e| map_internal_error(e, "melt quote error"))?;
 
-        melt_quote.paid = true;
+        melt_quote.state = MeltQuoteState::Paid;
         self.mint
             .update_melt_quote(melt_quote.clone())
             .await

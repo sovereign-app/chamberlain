@@ -65,7 +65,6 @@ Options:
           Print help
   -V, --version
           Print version
-
 ```
 
 ## Building from Source
