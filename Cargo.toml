@@ -13,6 +13,10 @@ server = [
     "cdk-axum",
     "clap",
     "dirs",
+    "instant-acme",
+    "public-ip",
+    "rcgen",
+    "serde_json",
     "tokio",
     "tokio-util",
     "tracing-subscriber",
@@ -26,8 +30,15 @@ cdk-ldk = { git = "https://github.com/davidcaseria/cdk", branch = "ldk", optiona
 cdk-redb = { git = "https://github.com/davidcaseria/cdk", branch = "ldk", optional = true }
 clap = { version = "4.5.4", features = ["derive", "cargo"], optional = true }
 dirs = { version = "5.0.1", optional = true }
+instant-acme = { version = "0.6.1", optional = true }
 prost = "0.12.6"
+# public-ip = { version = "0.2.2", optional = true, default-features = false, features = [
+#     "tokio-dns-resolver",
+# ] }
+public-ip = { version = "0.2.2", optional = true }
+rcgen = { version = "0.13.1", optional = true }
 serde = { version = "1.0.203", features = ["derive"] }
+serde_json = { version = "1.0.66", optional = true }
 tokio = { version = "1", features = [
     "macros",
     "rt-multi-thread",
@@ -35,7 +46,7 @@ tokio = { version = "1", features = [
 ], optional = true }
 tokio-util = { version = "0.7.11", optional = true }
 toml = "0.8.14"
-tonic = "0.11.0"
+tonic = { version = "0.11.0", features = ["tls"] }
 tracing = { version = "0.1.40", features = ["log"] }
 tracing-subscriber = { version = "0.3.18", features = [
     "env-filter",

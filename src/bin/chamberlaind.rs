@@ -29,18 +29,12 @@ use chamberlain::{
 use clap::Parser;
 use tokio::signal::unix::SignalKind;
 use tokio_util::sync::CancellationToken;
-use tonic::transport::Server;
+use tonic::transport::{Server, ServerTlsConfig};
 
 #[tokio::main(flavor = "multi_thread")]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
     let config = Config::load(cli);
-
-    if !config.unmanaged {
-        return Err(
-            "Managed mode is not yet supported. Run chamberlaind with --unmanaged=true.".into(),
-        );
-    }
 
     // Setup logging and tracing
     let subscriber = tracing_subscriber::fmt::Subscriber::builder()
@@ -145,11 +139,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing::info!("Starting RPC server");
     let rpc_addr = SocketAddr::new(config.rpc_host, config.rpc_port);
     let rpc_server = RpcServer::new(config.clone(), mint.clone(), node.clone());
+    let rpc_tls_identity = config.rpc_tls_identity();
     let rpc_cancel_token = cancel_token.clone();
     tokio::spawn(async move {
-        let server = Server::builder().add_service(ChamberlainServer::new(rpc_server));
+        let mut server = Server::builder();
+        if let Some(identity) = rpc_tls_identity {
+            tracing::info!("Using TLS identity");
+            server = server
+                .tls_config(ServerTlsConfig::new().identity(identity))
+                .expect("Invalid TLS config");
+        }
+        let router = server.add_service(ChamberlainServer::new(rpc_server));
         tokio::select! {
-            _ = server.serve(rpc_addr) => {}
+            _ = router.serve(rpc_addr) => {}
             _ = rpc_cancel_token.cancelled() => {}
         }
     });

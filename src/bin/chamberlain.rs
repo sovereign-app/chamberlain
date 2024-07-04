@@ -108,6 +108,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("description:      {}", info.description);
             println!("node id:          {}", info.node_id);
             println!(
+                "public ip:        {}",
+                info.public_ip.unwrap_or("unknown".to_string())
+            );
+            println!(
                 "balance:          {} sat",
                 info.channel_balances.values().sum::<u64>()
             );

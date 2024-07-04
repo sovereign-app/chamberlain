@@ -18,7 +18,7 @@ use cdk::{
     util::{hex, unix_time},
 };
 use cdk_ldk::{lightning::ln::ChannelId, Node};
-use tonic::{Request, Response, Status};
+use tonic::{transport::Identity, Request, Response, Status};
 use tracing_subscriber::EnvFilter;
 use url::Url;
 
@@ -27,12 +27,19 @@ use crate::rpc::{
     ClaimChannelRequest, ClaimChannelResponse, CloseChannelRequest, CloseChannelResponse,
     ConnectPeerRequest, ConnectPeerResponse, FundChannelRequest, FundChannelResponse,
     GetInfoRequest, GetInfoResponse, OpenChannelRequest, OpenChannelResponse,
-    SweepSpendableBalanceRequest, SweepSpendableBalanceResponse,
+    OrderCertificateRequest, OrderCertificateResponse, ProvisionCertificateRequest,
+    ProvisionCertificateResponse, SweepSpendableBalanceRequest, SweepSpendableBalanceResponse,
 };
+
+pub(crate) mod letsencrypt;
 
 pub const KEY_FILE: &str = "key";
 pub const MINT_DB_FILE: &str = "mint";
 pub const NODE_DIR: &str = "node";
+pub const TLS_CERT_FILE: &str = "cert.pem";
+pub const TLS_DIR: &str = "tls";
+pub const TLS_KEY_FILE: &str = "key.pem";
+pub const TLS_LET_ENCRYPT_CRED_FILE: &str = "credentials.key";
 
 pub struct RpcServer {
     config: Config,
@@ -72,7 +79,35 @@ impl Chamberlain for RpcServer {
             inbound_liquidity: node_info.inbound_liquidity.to_sat(),
             network_nodes: node_info.network_nodes as u32,
             network_channels: node_info.network_channels as u32,
+            public_ip: public_ip::addr().await.map(|ip| ip.to_string()),
         }))
+    }
+
+    async fn order_certificate(
+        &self,
+        request: Request<OrderCertificateRequest>,
+    ) -> Result<Response<OrderCertificateResponse>, Status> {
+        let request = request.into_inner();
+        let res = letsencrypt::order_certificate(&self.config, request.domains)
+            .await
+            .map_err(|e| map_internal_error(e, "tls cert order failed"))?;
+        Ok(Response::new(res))
+    }
+
+    async fn provision_certificate(
+        &self,
+        request: Request<ProvisionCertificateRequest>,
+    ) -> Result<Response<ProvisionCertificateResponse>, Status> {
+        let request = request.into_inner();
+        letsencrypt::provision_certificate(
+            &self.config,
+            request.order_url,
+            request.challenge_urls,
+            request.domains,
+        )
+        .await
+        .map_err(|e| map_internal_error(e, "tls cert provision failed"))?;
+        Ok(Response::new(ProvisionCertificateResponse {}))
     }
 
     async fn announce_node(
@@ -466,6 +501,7 @@ create_config_structs!(
     (bitcoind_rpc_password: String, "Bitcoind RPC password"),
     (lightning_port: u16, "Lightning Network p2p port"),
     (lightning_announce_addr: SocketAddr, "Lightning Network announce address"),
+    (lightning_auto_announce: bool, "Auto announce lightning node"),
     (rpc_host: IpAddr, "Host IP to bind the RPC server"),
     (rpc_port: u16, "Port to bind the RPC server"),
     (http_host: IpAddr, "Host IP to bind the HTTP server"),
@@ -475,7 +511,6 @@ create_config_structs!(
     (mint_description: String, "Mint description"),
     (mint_color: String, "Mint LN alias color"),
     (log_level: LogLevel, "Log level"),
-    (unmanaged: bool, "Unmanaged mode"),
 );
 
 #[derive(Debug, Clone, Copy, serde::Deserialize, clap::ValueEnum)]
@@ -549,6 +584,18 @@ impl Config {
         let b = u8::from_str_radix(&color[4..6], 16).unwrap_or(0);
         [r, g, b]
     }
+
+    pub fn rpc_tls_identity(&self) -> Option<Identity> {
+        let tls_dir = self.data_dir().join(TLS_DIR);
+        let cert_file = tls_dir.join(TLS_CERT_FILE);
+        let key_file = tls_dir.join(TLS_KEY_FILE);
+        if fs::metadata(&cert_file).is_err() || fs::metadata(&key_file).is_err() {
+            return None;
+        }
+        let cert = std::fs::read_to_string(cert_file).ok()?;
+        let key = std::fs::read_to_string(key_file).ok()?;
+        Some(Identity::from_pem(cert, key))
+    }
 }
 
 impl Default for Config {
@@ -561,6 +608,7 @@ impl Default for Config {
             bitcoind_rpc_password: "password".to_string(),
             lightning_port: 9735,
             lightning_announce_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 9735),
+            lightning_auto_announce: false,
             rpc_host: IpAddr::V4(Ipv4Addr::LOCALHOST),
             rpc_port: 3339,
             http_host: IpAddr::V4(Ipv4Addr::LOCALHOST),
@@ -570,7 +618,6 @@ impl Default for Config {
             mint_description: "A chamberlain powered cashu mint".to_string(),
             mint_color: "#853DB5".to_string(),
             log_level: LogLevel::Info,
-            unmanaged: false,
         }
     }
 }
