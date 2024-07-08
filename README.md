@@ -77,5 +77,5 @@ cargo build --release
 Running regtest node is supported using [Polar](https://lightningpolar.com/):
 
 ```
-cargo run --bin chamberlaind -- --unmanaged=true --network=regtest --bitcoind-rpc-url=http://127.0.0.1:18443 --bitcoind-rpc-user=polaruser --bitcoind-rpc-password=polarpass --mint-url=http://<LOCAL_IP_ADDRESS>:3338 --http-host 0.0.0.0 --lightning-port=9634 --log-level=debug
+cargo run --bin chamberlaind -- --network=regtest --bitcoind-rpc-url=http://127.0.0.1:18443 --bitcoind-rpc-user=polaruser --bitcoind-rpc-password=polarpass --mint-url=http://<LOCAL_IP_ADDRESS>:3338 --http-host 0.0.0.0 --lightning-port=9634 --log-level=debug
 ```
