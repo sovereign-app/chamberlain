@@ -5,7 +5,11 @@ use std::{
     str::FromStr,
 };
 
-use bitcoin::{consensus::Decodable, Address, Network, Transaction};
+use bitcoin::{
+    consensus::Decodable,
+    secp256k1::rand::{self, distributions::Alphanumeric, Rng},
+    Address, Network, Transaction,
+};
 use cdk::{
     amount::SplitTarget,
     cdk_lightning::Amount,
@@ -18,21 +22,24 @@ use cdk::{
     util::{hex, unix_time},
 };
 use cdk_ldk::{lightning::ln::ChannelId, Node};
+use tokio_util::sync::CancellationToken;
 use tonic::{transport::Identity, Request, Response, Status};
 use tracing_subscriber::EnvFilter;
 use url::Url;
 
 use crate::rpc::{
-    chamberlain_server::Chamberlain, AnnounceNodeRequest, AnnounceNodeResponse,
-    ClaimChannelRequest, ClaimChannelResponse, CloseChannelRequest, CloseChannelResponse,
-    ConnectPeerRequest, ConnectPeerResponse, FundChannelRequest, FundChannelResponse,
-    GetInfoRequest, GetInfoResponse, OpenChannelRequest, OpenChannelResponse,
-    OrderCertificateRequest, OrderCertificateResponse, ProvisionCertificateRequest,
-    ProvisionCertificateResponse, SweepSpendableBalanceRequest, SweepSpendableBalanceResponse,
+    chamberlain_server::Chamberlain, finish_auth_token, start_auth_token, AnnounceNodeRequest,
+    AnnounceNodeResponse, ClaimChannelRequest, ClaimChannelResponse, CloseChannelRequest,
+    CloseChannelResponse, ConnectPeerRequest, ConnectPeerResponse, FundChannelRequest,
+    FundChannelResponse, GenerateAuthTokenRequest, GenerateAuthTokenResponse, GetInfoRequest,
+    GetInfoResponse, OpenChannelRequest, OpenChannelResponse, OrderCertificateRequest,
+    OrderCertificateResponse, ProvisionCertificateRequest, ProvisionCertificateResponse,
+    SweepSpendableBalanceRequest, SweepSpendableBalanceResponse,
 };
 
 pub(crate) mod letsencrypt;
 
+pub const AUTH_TOKEN_FILE: &str = "auth_token";
 pub const KEY_FILE: &str = "key";
 pub const MINT_DB_FILE: &str = "mint";
 pub const NODE_DIR: &str = "node";
@@ -41,20 +48,41 @@ pub const TLS_DIR: &str = "tls";
 pub const TLS_KEY_FILE: &str = "key.pem";
 pub const TLS_LET_ENCRYPT_CRED_FILE: &str = "credentials.key";
 
+#[derive(Clone)]
 pub struct RpcServer {
     config: Config,
     mint: Mint,
     node: Node,
+    restart_token: CancellationToken,
 }
 
 impl RpcServer {
-    pub fn new(config: Config, mint: Mint, node: Node) -> Self {
-        Self { config, mint, node }
+    pub fn new(config: Config, mint: Mint, node: Node, restart_token: CancellationToken) -> Self {
+        Self {
+            config,
+            mint,
+            node,
+            restart_token,
+        }
     }
 }
 
 #[tonic::async_trait]
 impl Chamberlain for RpcServer {
+    async fn generate_auth_token(
+        &self,
+        request: Request<GenerateAuthTokenRequest>,
+    ) -> Result<Response<GenerateAuthTokenResponse>, Status> {
+        let request = request.into_inner();
+        let (s, m) = start_auth_token(&self.config.password);
+        let token =
+            finish_auth_token(s, request.message).map_err(|e| Status::internal(e.to_string()))?;
+        fs::write(self.config.data_dir().join(AUTH_TOKEN_FILE), token)
+            .map_err(|e| Status::internal(e.to_string()))?;
+        self.restart_token.cancel();
+        Ok(Response::new(GenerateAuthTokenResponse { message: m }))
+    }
+
     async fn get_info(
         &self,
         _request: Request<GetInfoRequest>,
@@ -107,6 +135,7 @@ impl Chamberlain for RpcServer {
         )
         .await
         .map_err(|e| map_internal_error(e, "tls cert provision failed"))?;
+        self.restart_token.cancel();
         Ok(Response::new(ProvisionCertificateResponse {}))
     }
 
@@ -510,6 +539,7 @@ create_config_structs!(
     (mint_name: String, "Mint name and LN alias"),
     (mint_description: String, "Mint description"),
     (mint_color: String, "Mint LN alias color"),
+    (password: String, "RPC auth token password"),
     (log_level: LogLevel, "Log level"),
 );
 
@@ -617,9 +647,21 @@ impl Default for Config {
             mint_name: "Chamberlain".to_string(),
             mint_description: "A chamberlain powered cashu mint".to_string(),
             mint_color: "#853DB5".to_string(),
+            password: generate_password(),
             log_level: LogLevel::Info,
         }
     }
+}
+
+fn generate_password() -> String {
+    let mut rng = rand::thread_rng();
+    let password: String = std::iter::repeat(())
+        .map(|()| rng.sample(Alphanumeric))
+        .filter(|c| !matches!(c, b'I' | b'l' | b'O' | b'0'))
+        .take(8)
+        .map(char::from)
+        .collect();
+    password
 }
 
 #[cfg(test)]

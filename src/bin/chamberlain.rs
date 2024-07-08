@@ -1,14 +1,16 @@
-use std::net::SocketAddr;
+use std::{fs, net::SocketAddr, path::PathBuf};
 
+use base64::{engine::general_purpose, Engine};
 use bitcoin::Network;
 use cdk::util::hex;
 use chamberlain::rpc::{
-    chamberlain_client::ChamberlainClient, AnnounceNodeRequest, ClaimChannelRequest,
-    CloseChannelRequest, ConnectPeerRequest, FundChannelRequest, GetInfoRequest,
+    chamberlain_client::ChamberlainClient, client_auth_interceptor, finish_auth_token_base64,
+    start_auth_token, AnnounceNodeRequest, ClaimChannelRequest, CloseChannelRequest,
+    ConnectPeerRequest, FundChannelRequest, GenerateAuthTokenRequest, GetInfoRequest,
     OpenChannelRequest, SweepSpendableBalanceRequest,
 };
 use clap::{Parser, Subcommand};
-use tonic::Request;
+use tonic::{transport::Endpoint, Request};
 use url::Url;
 
 #[derive(Parser)]
@@ -22,12 +24,25 @@ struct Cli {
     #[arg(short, long, default_value = "bitcoin")]
     network: Network,
 
+    /// Auth token
+    #[arg(short, long)]
+    token: Option<String>,
+
+    /// Auth token file
+    #[arg(long, default_value = "~/.chamberlain/auth_token")]
+    token_file: PathBuf,
+
     #[command(subcommand)]
     command: Commands,
 }
 
 #[derive(Subcommand)]
 enum Commands {
+    /// Generate a new auth token
+    GenerateAuthToken {
+        /// Password
+        password: Option<String>,
+    },
     /// Get info
     GetInfo,
     /// Announce node
@@ -98,9 +113,41 @@ enum Commands {
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
-    let mut client = ChamberlainClient::connect(cli.addr.to_string()).await?;
+    let token = if let Some(token) = cli.token.map(|t| general_purpose::STANDARD.decode(t)) {
+        token?
+    } else {
+        let token_file = if let Some(home_dir) = dirs::home_dir() {
+            if let Ok(without_tilde) = cli.token_file.strip_prefix("~") {
+                home_dir.join(without_tilde)
+            } else {
+                cli.token_file
+            }
+        } else {
+            cli.token_file
+        };
+        fs::read(token_file)?
+    };
+
+    let mut client = ChamberlainClient::with_interceptor(
+        Endpoint::from_shared(cli.addr.to_string())?
+            .connect()
+            .await?,
+        client_auth_interceptor(&token)?,
+    );
 
     match cli.command {
+        Commands::GenerateAuthToken { password } => {
+            let password = password.unwrap_or_else(|| {
+                rpassword::prompt_password("Password: ").expect("Failed to read password")
+            });
+            let (s, m) = start_auth_token(&password);
+            let res = client
+                .generate_auth_token(Request::new(GenerateAuthTokenRequest { message: m }))
+                .await?
+                .into_inner();
+            let token = finish_auth_token_base64(s, res.message)?;
+            println!("{}", token);
+        }
         Commands::GetInfo => {
             let response = client.get_info(Request::new(GetInfoRequest {})).await?;
             let info = response.into_inner();

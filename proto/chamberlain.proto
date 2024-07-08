@@ -3,6 +3,7 @@ syntax = "proto3";
 package chamberlain;
 
 service Chamberlain {
+    rpc GenerateAuthToken(GenerateAuthTokenRequest) returns (GenerateAuthTokenResponse) {}
     rpc GetInfo(GetInfoRequest) returns (GetInfoResponse) {}
     rpc OrderCertificate(OrderCertificateRequest) returns (OrderCertificateResponse) {}
     rpc ProvisionCertificate(ProvisionCertificateRequest) returns (ProvisionCertificateResponse) {}
@@ -13,6 +14,14 @@ service Chamberlain {
     rpc ClaimChannel(ClaimChannelRequest) returns (ClaimChannelResponse) {}
     rpc CloseChannel(CloseChannelRequest) returns (CloseChannelResponse) {}
     rpc SweepSpendableBalance(SweepSpendableBalanceRequest) returns (SweepSpendableBalanceResponse) {}
+}
+
+message GenerateAuthTokenRequest {
+    bytes message = 1;
+}
+
+message GenerateAuthTokenResponse {
+    bytes message = 1;
 }
 
 message GetInfoRequest {
