@@ -638,7 +638,7 @@ impl Default for Config {
             bitcoind_rpc_password: "password".to_string(),
             lightning_port: 9735,
             lightning_announce_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 9735),
-            lightning_auto_announce: false,
+            lightning_auto_announce: true,
             rpc_host: IpAddr::V4(Ipv4Addr::LOCALHOST),
             rpc_port: 3339,
             http_host: IpAddr::V4(Ipv4Addr::LOCALHOST),

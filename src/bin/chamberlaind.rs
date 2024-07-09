@@ -2,7 +2,7 @@ use std::{
     collections::HashMap,
     fs,
     io::Write,
-    net::{Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4},
+    net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4},
     sync::Arc,
     time::Duration,
 };
@@ -238,17 +238,38 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     });
 
     // Periodically broadcast node announcement
-    if config.lightning_auto_announce
-        && config.lightning_announce_addr.ip() != Ipv4Addr::LOCALHOST
-        && config.lightning_announce_addr.ip() != Ipv6Addr::LOCALHOST
-    {
-        let alias = config.mint_name.clone();
-        let color = config.mint_color();
-        let addrs = vec![config.lightning_announce_addr];
+    if config.lightning_auto_announce {
+        let announce_config = config.clone();
         let announce_node = node.clone();
         let announcement_cancel_token = cancel_token.clone();
         tokio::spawn(async move {
             loop {
+                let alias = announce_config.mint_name.clone();
+                let color = announce_config.mint_color();
+                let addrs = match announce_config.lightning_announce_addr.ip() {
+                    IpAddr::V4(Ipv4Addr::LOCALHOST) | IpAddr::V6(Ipv6Addr::LOCALHOST) => {
+                        if let Some(public_ip) = public_ip::addr().await {
+                            vec![SocketAddr::new(public_ip, announce_config.lightning_port)]
+                        } else {
+                            vec![]
+                        }
+                    }
+                    _ => vec![announce_config.lightning_announce_addr],
+                };
+                if addrs.is_empty() {
+                    tracing::warn!("Public IP not set, skipping node announcement");
+                    tokio::time::sleep(Duration::from_secs(3600)).await;
+                    continue;
+                }
+
+                tracing::debug!(
+                    "Announcing node on {}",
+                    addrs
+                        .iter()
+                        .map(|a| a.to_string())
+                        .collect::<Vec<String>>()
+                        .join(", ")
+                );
                 match announce_node.announce_node(&alias, color, addrs.clone()) {
                     Ok(_) => {
                         tracing::debug!("Announced node");
