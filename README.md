@@ -9,16 +9,11 @@ This project aims to substantially increase the number of [Uncle Jims](https://t
 
 Chamberlain ships with two binaries: `chamberlaind`, the long-running daemon, and `chamberlain`, the management cli tool.
 
-### Unmanaged Mode
-
-Currently, only Chamberlain's unmanaged mode is supported.
-This means all DNS, TLS certificate, and firewall configuration will need to be managed by the mint operator.
-
 ```
-chamberlaind --unmanaged=true --mint-url=http://mint.url:3338
+chamberlaind --mint-url=http://mint.url:3338
 ```
 
-All configurable options are availble from the help menu:
+All configurable options are available from the help menu:
 
 ```
 $ chamberlaind --help
@@ -41,6 +36,8 @@ Options:
           Lightning Network p2p port
       --lightning-announce-addr <LIGHTNING_ANNOUNCE_ADDR>
           Lightning Network announce address
+      --lightning-auto-announce <LIGHTNING_AUTO_ANNOUNCE>
+          Auto announce lightning node [possible values: true, false]
       --rpc-host <RPC_HOST>
           Host IP to bind the RPC server
       --rpc-port <RPC_PORT>
@@ -57,15 +54,14 @@ Options:
           Mint description
       --mint-color <MINT_COLOR>
           Mint LN alias color
+      --password <PASSWORD>
+          RPC auth token password
       --log-level <LOG_LEVEL>
           Log level [possible values: trace, trace-all, debug, debug-all, info, warn, error, off]
-      --unmanaged <UNMANAGED>
-          Unmanaged mode [possible values: true, false]
   -h, --help
           Print help
   -V, --version
           Print version
-
 ```
 
 ## Building from Source
@@ -81,5 +77,5 @@ cargo build --release
 Running regtest node is supported using [Polar](https://lightningpolar.com/):
 
 ```
-cargo run --bin chamberlaind -- --unmanaged=true --network=regtest --bitcoind-rpc-url=http://127.0.0.1:18443 --bitcoind-rpc-user=polaruser --bitcoind-rpc-password=polarpass --mint-url=http://<LOCAL_IP_ADDRESS>:3338 --http-host 0.0.0.0 --lightning-port=9634 --log-level=debug
+cargo run --bin chamberlaind -- --network=regtest --bitcoind-rpc-url=http://127.0.0.1:18443 --bitcoind-rpc-user=polaruser --bitcoind-rpc-password=polarpass --mint-url=http://<LOCAL_IP_ADDRESS>:3338 --http-host 0.0.0.0 --lightning-port=9634 --log-level=debug
 ```

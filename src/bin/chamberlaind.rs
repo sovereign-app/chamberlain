@@ -23,24 +23,18 @@ use cdk_ldk::{
 };
 use cdk_redb::MintRedbDatabase;
 use chamberlain::{
-    rpc::chamberlain_server::ChamberlainServer,
-    server::{Cli, Config, RpcServer, KEY_FILE, MINT_DB_FILE, NODE_DIR},
+    rpc::{chamberlain_server::ChamberlainServer, server_auth_interceptor_from_file},
+    server::{Cli, Config, RpcServer, AUTH_TOKEN_FILE, KEY_FILE, MINT_DB_FILE, NODE_DIR},
 };
 use clap::Parser;
 use tokio::signal::unix::SignalKind;
 use tokio_util::sync::CancellationToken;
-use tonic::transport::Server;
+use tonic::transport::{Server, ServerTlsConfig};
 
 #[tokio::main(flavor = "multi_thread")]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
     let config = Config::load(cli);
-
-    if !config.unmanaged {
-        return Err(
-            "Managed mode is not yet supported. Run chamberlaind with --unmanaged=true.".into(),
-        );
-    }
 
     // Setup logging and tracing
     let subscriber = tracing_subscriber::fmt::Subscriber::builder()
@@ -69,6 +63,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let key = ExtendedPrivKey::new_master(config.network, &seed)?;
         let mut file = fs::File::create(&key_file)?;
         file.write_all(&key.encode())?;
+    }
+
+    // Generate auth token if necessary
+    let auth_token_file = config.data_dir().join(AUTH_TOKEN_FILE);
+    if fs::metadata(&auth_token_file).is_err() {
+        tracing::info!("Generating auth token");
+        let token = random::<[u8; 32]>();
+        let mut file = fs::File::create(&auth_token_file)?;
+        file.write_all(&token)?;
     }
 
     // Load key
@@ -143,14 +146,42 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cancel_token = CancellationToken::new();
 
     tracing::info!("Starting RPC server");
-    let rpc_addr = SocketAddr::new(config.rpc_host, config.rpc_port);
-    let rpc_server = RpcServer::new(config.clone(), mint.clone(), node.clone());
+    let rpc_config = config.clone();
+    let rpc_node = node.clone();
+    let rpc_mint = mint.clone();
     let rpc_cancel_token = cancel_token.clone();
     tokio::spawn(async move {
-        let server = Server::builder().add_service(ChamberlainServer::new(rpc_server));
-        tokio::select! {
-            _ = server.serve(rpc_addr) => {}
-            _ = rpc_cancel_token.cancelled() => {}
+        loop {
+            let restart_token = rpc_cancel_token.child_token();
+            let rpc_server = RpcServer::new(
+                rpc_config.clone(),
+                rpc_mint.clone(),
+                rpc_node.clone(),
+                restart_token.clone(),
+            );
+            let mut server = Server::builder();
+            if let Some(identity) = rpc_config.rpc_tls_identity() {
+                tracing::info!("Using TLS identity");
+                server = server
+                    .tls_config(ServerTlsConfig::new().identity(identity))
+                    .expect("Invalid TLS config");
+            }
+            let svc = ChamberlainServer::with_interceptor(
+                rpc_server.clone(),
+                server_auth_interceptor_from_file(rpc_config.data_dir().join(AUTH_TOKEN_FILE))
+                    .expect("Invalid auth token"),
+            );
+            let router = server.add_service(svc);
+            tokio::select! {
+                _ = router.serve(SocketAddr::new(rpc_config.rpc_host, rpc_config.rpc_port)) => {}
+                _ = rpc_cancel_token.cancelled() => {}
+                _ = restart_token.cancelled() => {}
+            }
+            if rpc_cancel_token.is_cancelled() {
+                break;
+            } else {
+                tracing::info!("Restarting RPC server");
+            }
         }
     });
 
@@ -167,7 +198,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     });
 
     // Periodically broadcast node announcement
-    if config.lightning_announce_addr.ip() != Ipv4Addr::LOCALHOST
+    if config.lightning_auto_announce
+        && config.lightning_announce_addr.ip() != Ipv4Addr::LOCALHOST
         && config.lightning_announce_addr.ip() != Ipv6Addr::LOCALHOST
     {
         let alias = config.mint_name.clone();
