@@ -198,7 +198,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     });
 
     // Periodically broadcast node announcement
-    if config.lightning_announce_addr.ip() != Ipv4Addr::LOCALHOST
+    if config.lightning_auto_announce
+        && config.lightning_announce_addr.ip() != Ipv4Addr::LOCALHOST
         && config.lightning_announce_addr.ip() != Ipv6Addr::LOCALHOST
     {
         let alias = config.mint_name.clone();

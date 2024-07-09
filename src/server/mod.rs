@@ -40,6 +40,7 @@ use crate::rpc::{
 pub(crate) mod letsencrypt;
 
 pub const AUTH_TOKEN_FILE: &str = "auth_token";
+pub const CONFIG_FILE: &str = "config.toml";
 pub const KEY_FILE: &str = "key";
 pub const MINT_DB_FILE: &str = "mint";
 pub const NODE_DIR: &str = "node";
@@ -481,7 +482,7 @@ fn parse_channel_id(channel_id: &str) -> Result<ChannelId, Status> {
 
 macro_rules! create_config_structs {
     ($(($field:ident: $type:ty, $doc:expr),)*) => {
-        #[derive(Clone, Debug, serde::Deserialize)]
+        #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
         pub struct Config {
             $(
                 #[doc = $doc]
@@ -543,7 +544,7 @@ create_config_structs!(
     (log_level: LogLevel, "Log level"),
 );
 
-#[derive(Debug, Clone, Copy, serde::Deserialize, clap::ValueEnum)]
+#[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize, clap::ValueEnum)]
 pub enum LogLevel {
     Trace,
     TraceAll,
@@ -576,9 +577,7 @@ impl Config {
         let config_file = cli
             .data_dir
             .as_ref()
-            .map_or(default.data_dir.join("config.toml"), |d| {
-                d.join("config.toml")
-            });
+            .map_or(default.data_dir.join(CONFIG_FILE), |d| d.join(CONFIG_FILE));
 
         let file_cli: Option<Cli> = match fs::read_to_string(&config_file) {
             Ok(s) => toml::from_str(&s).ok(),
@@ -625,6 +624,11 @@ impl Config {
         let cert = std::fs::read_to_string(cert_file).ok()?;
         let key = std::fs::read_to_string(key_file).ok()?;
         Some(Identity::from_pem(cert, key))
+    }
+
+    pub fn save(&self) -> Result<(), Box<dyn std::error::Error>> {
+        let config_file = self.data_dir().join(CONFIG_FILE);
+        Ok(fs::write(config_file, toml::to_string(self)?)?)
     }
 }
 
