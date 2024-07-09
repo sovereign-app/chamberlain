@@ -1,4 +1,5 @@
 use std::{
+    collections::HashMap,
     fs,
     io::Write,
     net::{Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4},
@@ -12,11 +13,12 @@ use bitcoin::{
     Network,
 };
 use cdk::{
+    cdk_lightning::MintLightning,
     mint::Mint,
-    nuts::{MintInfo, MintVersion, Nuts},
+    nuts::{CurrencyUnit, MintInfo, MintVersion, Nuts, PaymentMethod},
     secp256k1::{rand::random, PublicKey},
 };
-use cdk_axum::start_server;
+use cdk_axum::{create_mint_router, LnKey};
 use cdk_ldk::{
     lightning::util::config::{ChannelHandshakeConfig, ChannelHandshakeLimits, UserConfig},
     BitcoinClient, Node,
@@ -27,7 +29,8 @@ use chamberlain::{
     server::{Cli, Config, RpcServer, AUTH_TOKEN_FILE, KEY_FILE, MINT_DB_FILE, NODE_DIR},
 };
 use clap::Parser;
-use tokio::signal::unix::SignalKind;
+use futures::StreamExt;
+use tokio::{net::TcpListener, signal::unix::SignalKind};
 use tokio_util::sync::CancellationToken;
 use tonic::transport::{Server, ServerTlsConfig};
 
@@ -186,14 +189,51 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     });
 
     tracing::info!("Starting HTTP server");
-    let http_addr = SocketAddr::new(config.http_host, config.http_port);
+    let http_config = config.clone();
+    let http_mint = mint.clone();
     let http_node = node.clone();
     let http_cancel_token = cancel_token.clone();
-    let mint_url = config.mint_url.clone();
+    tokio::spawn(async move {
+        let mut ln = HashMap::new();
+        ln.insert(
+            LnKey::new(CurrencyUnit::Sat, PaymentMethod::Bolt11),
+            Arc::new(http_node)
+                as Arc<dyn MintLightning<Err = cdk::cdk_lightning::Error> + Send + Sync + 'static>,
+        );
+        match create_mint_router(http_config.mint_url.as_str(), Arc::new(http_mint), ln, 3600).await
+        {
+            Ok(router) => {
+                let addr = SocketAddr::new(http_config.http_host, http_config.http_port);
+                match TcpListener::bind(&addr).await {
+                    Ok(listener) => {
+                        if let Err(e) = axum::serve(listener, router)
+                            .with_graceful_shutdown(async move {
+                                http_cancel_token.cancelled().await;
+                            })
+                            .await
+                        {
+                            tracing::error!("HTTP server error: {}", e);
+                        }
+                    }
+                    Err(e) => {
+                        tracing::error!("Failed to bind HTTP server: {}", e);
+                    }
+                }
+            }
+            Err(e) => {
+                tracing::error!("Failed to create HTTP server: {}", e);
+            }
+        }
+    });
+
+    // Listen for invoice updates
+    let invoice_cancel_token = cancel_token.clone();
+    let invoice_mint = mint.clone();
+    let invoice_node = node.clone();
     tokio::spawn(async move {
         tokio::select! {
-            _ = start_server(mint_url.as_str(), http_addr, mint, Arc::new(http_node)) => {}
-            _ = http_cancel_token.cancelled() => {}
+            _ = listen_for_invoice_updates(invoice_mint, invoice_node) => {}
+            _ = invoice_cancel_token.cancelled() => {}
         }
     });
 
@@ -234,5 +274,30 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     node.stop();
     tracing::info!("Shutdown complete");
 
+    Ok(())
+}
+
+async fn listen_for_invoice_updates(
+    mint: Mint,
+    node: Node,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let mut stream = node.wait_any_invoice().await?;
+    while let Some(request_lookup_id) = stream.next().await {
+        tracing::debug!("Invoice with lookup id paid: {}", request_lookup_id);
+        if let Ok(Some(mint_quote)) = mint
+            .localstore
+            .get_mint_quote_by_request_lookup_id(&request_lookup_id)
+            .await
+        {
+            tracing::debug!(
+                "Quote {} paid by lookup id {}",
+                mint_quote.id,
+                request_lookup_id
+            );
+            mint.localstore
+                .update_mint_quote_state(&mint_quote.id, cdk::nuts::MintQuoteState::Paid)
+                .await?;
+        }
+    }
     Ok(())
 }

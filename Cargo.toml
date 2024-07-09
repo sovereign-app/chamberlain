@@ -6,6 +6,7 @@ edition = "2021"
 [features]
 default = ["server"]
 server = [
+    "axum",
     "bitcoin",
     "cdk",
     "cdk-ldk",
@@ -13,6 +14,7 @@ server = [
     "cdk-axum",
     "clap",
     "dirs",
+    "futures",
     "instant-acme",
     "public-ip",
     "rcgen",
@@ -24,6 +26,7 @@ server = [
 ]
 
 [dependencies]
+axum = { version = "0.7.5", optional = true }
 base64 = "0.22.1"
 bitcoin = { version = "0.30", optional = true }
 cdk = { git = "https://github.com/davidcaseria/cdk", branch = "ldk", optional = true }
@@ -32,6 +35,7 @@ cdk-ldk = { git = "https://github.com/davidcaseria/cdk", branch = "ldk", optiona
 cdk-redb = { git = "https://github.com/davidcaseria/cdk", branch = "ldk", optional = true }
 clap = { version = "4.5.4", features = ["derive", "cargo"], optional = true }
 dirs = { version = "5.0.1", optional = true }
+futures = { version = "0.3.28", optional = true }
 hmac = "0.12.1"
 instant-acme = { version = "0.6.1", optional = true }
 prost = "0.12.6"

@@ -11,8 +11,7 @@ use bitcoin::{
     Address, Network, Transaction,
 };
 use cdk::{
-    amount::SplitTarget,
-    cdk_lightning::Amount,
+    amount::{Amount, SplitTarget},
     dhke::construct_proofs,
     mint::Mint,
     nuts::{
@@ -97,15 +96,15 @@ impl Chamberlain for RpcServer {
             channel_balances: node_info
                 .channel_balances
                 .into_iter()
-                .map(|(channel_id, balance)| (channel_id.to_string(), balance.to_sat()))
+                .map(|(channel_id, balance)| (channel_id.to_string(), balance.into()))
                 .collect(),
             peers: node_info
                 .peers
                 .into_iter()
                 .map(|(node_id, addr)| (node_id.to_string(), addr.to_string()))
                 .collect(),
-            spendable_balance: node_info.spendable_balance.to_sat(),
-            inbound_liquidity: node_info.inbound_liquidity.to_sat(),
+            spendable_balance: node_info.spendable_balance.into(),
+            inbound_liquidity: node_info.inbound_liquidity.into(),
             network_nodes: node_info.network_nodes as u32,
             network_channels: node_info.network_channels as u32,
             public_ip: public_ip::addr().await.map(|ip| ip.to_string()),
@@ -182,12 +181,8 @@ impl Chamberlain for RpcServer {
         request: Request<OpenChannelRequest>,
     ) -> Result<Response<OpenChannelResponse>, Status> {
         let request = request.into_inner();
-        let amount = Amount::from_sat(request.amount);
-        tracing::info!(
-            "Opening channel with {} ({} sat)",
-            request.node_id,
-            amount.to_sat()
-        );
+        let amount = Amount::from(request.amount);
+        tracing::info!("Opening channel with {} ({} sat)", request.node_id, amount);
         let channel = self
             .node
             .open_channel(
@@ -208,8 +203,9 @@ impl Chamberlain for RpcServer {
                 self.config.mint_url.clone().into(),
                 address.to_string(),
                 CurrencyUnit::Sat,
-                cdk::Amount::from(amount.to_sat()),
+                amount,
                 unix_time() + 3600,
+                address.to_string(),
             )
             .await
             .map_err(|e| map_internal_error(e, "mint quote failed"))?;
@@ -290,13 +286,12 @@ impl Chamberlain for RpcServer {
             .into_iter()
             .find(|q| q.id == request.quote_id)
             .ok_or(Status::not_found("quote not found"))?;
-        if Into::<u64>::into(quote.amount)
+        if quote.amount
             != self
                 .node
                 .get_open_channel_value(channel_id)
                 .await
                 .map_err(|e| map_internal_error(e, "channel db error"))?
-                .to_sat()
         {
             return Err(Status::failed_precondition("quote amount incorrect"));
         }
@@ -323,8 +318,7 @@ impl Chamberlain for RpcServer {
             proofs,
             None,
             Some(CurrencyUnit::Sat),
-        )
-        .map_err(|e| map_internal_error(e, "token creation error"))?;
+        );
 
         Ok(Response::new(ClaimChannelResponse {
             token: token.to_string(),
@@ -349,8 +343,7 @@ impl Chamberlain for RpcServer {
             .node
             .get_current_channel_balance(channel_id)
             .map_err(|e| map_internal_error(e, "channel balance not available"))?;
-        let (token_amount, _) = token.token_info();
-        if Amount::from_sat(token_amount.into()) != channel_balance {
+        if token.value() != channel_balance {
             return Err(Status::invalid_argument("incorrect token amount"));
         }
 
@@ -359,9 +352,10 @@ impl Chamberlain for RpcServer {
             .new_melt_quote(
                 address.to_string(),
                 CurrencyUnit::Sat,
-                channel_balance.to_sat().into(),
-                cdk::Amount::ZERO,
+                channel_balance.into(),
+                Amount::ZERO,
                 unix_time() + 60,
+                address.to_string(),
             )
             .await
             .map_err(|e| map_internal_error(e, "melt quote error"))?;
@@ -381,15 +375,15 @@ impl Chamberlain for RpcServer {
                 &MeltBolt11Request {
                     quote: melt_quote.id,
                     inputs: token
-                        .token
+                        .proofs()
                         .into_iter()
-                        .map(|p| p.proofs)
+                        .map(|(_, proofs)| proofs)
                         .flatten()
                         .collect(),
                     outputs: None,
                 },
                 None,
-                channel_balance.to_sat().into(),
+                channel_balance.into(),
             )
             .await
             .map_err(|e| map_internal_error(e, "melt quote process error"))?;
@@ -420,9 +414,10 @@ impl Chamberlain for RpcServer {
             .new_melt_quote(
                 address.to_string(),
                 CurrencyUnit::Sat,
-                spendable_balance.to_sat().into(),
-                cdk::Amount::ZERO,
+                spendable_balance.into(),
+                Amount::ZERO,
                 unix_time() + 60,
+                address.to_string(),
             )
             .await
             .map_err(|e| map_internal_error(e, "melt quote error"))?;
@@ -437,15 +432,15 @@ impl Chamberlain for RpcServer {
                 &MeltBolt11Request {
                     quote: melt_quote.id,
                     inputs: token
-                        .token
+                        .proofs()
                         .into_iter()
-                        .map(|p| p.proofs)
+                        .map(|(_, proofs)| proofs)
                         .flatten()
                         .collect(),
                     outputs: None,
                 },
                 None,
-                spendable_balance.to_sat().into(),
+                spendable_balance.into(),
             )
             .await
             .map_err(|e| map_internal_error(e, "melt quote process error"))?;
