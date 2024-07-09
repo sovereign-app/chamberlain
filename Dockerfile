@@ -1,4 +1,4 @@
-FROM lukemathwalker/cargo-chef:0.1.67-rust-1.78.0-bookworm AS chef
+FROM lukemathwalker/cargo-chef:0.1.67-rust-1.79.0-bookworm AS chef
 WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
