@@ -38,7 +38,7 @@ dirs = { version = "5.0.1", optional = true }
 futures = { version = "0.3.28", optional = true }
 hmac = "0.12.1"
 instant-acme = { version = "0.6.1", optional = true }
-prost = "0.12.6"
+prost = "0.13.1"
 public-ip = { version = "0.2.2", optional = true }
 rcgen = { version = "0.13.1", optional = true }
 rpassword = { version = "7.3.1", optional = true }
@@ -54,7 +54,11 @@ tokio = { version = "1", features = [
 ], optional = true }
 tokio-util = { version = "0.7.11", optional = true }
 toml = "0.8.14"
-tonic = { version = "0.11.0", features = ["tls"] }
+tonic = { version = "0.12.0", features = [
+    "tls",
+    "tls-roots",
+    "tls-webpki-roots",
+] }
 tracing = { version = "0.1.40", features = ["log"] }
 tracing-subscriber = { version = "0.3.18", features = [
     "env-filter",
@@ -64,4 +68,4 @@ url = { version = "2.5.0", features = ["serde"] }
 uuid = { version = "1.9.1", features = ["v7"] }
 
 [build-dependencies]
-tonic-build = "0.11.0"
+tonic-build = "0.12.0"

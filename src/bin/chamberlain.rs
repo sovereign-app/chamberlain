@@ -10,7 +10,10 @@ use chamberlain::rpc::{
     OpenChannelRequest, SweepSpendableBalanceRequest,
 };
 use clap::{Parser, Subcommand};
-use tonic::{transport::Endpoint, Request};
+use tonic::{
+    transport::{Certificate, ClientTlsConfig, Endpoint},
+    Request,
+};
 use url::Url;
 
 #[derive(Parser)]
@@ -23,6 +26,10 @@ struct Cli {
     /// Bitcoin Network
     #[arg(short, long, default_value = "bitcoin")]
     network: Network,
+
+    /// Certificate authority file
+    #[arg(long)]
+    ca_file: Option<PathBuf>,
 
     /// Auth token
     #[arg(short, long)]
@@ -128,12 +135,31 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         fs::read(token_file)?
     };
 
-    let mut client = ChamberlainClient::with_interceptor(
-        Endpoint::from_shared(cli.addr.to_string())?
-            .connect()
-            .await?,
-        client_auth_interceptor(&token)?,
-    );
+    let mut client = match cli.addr.scheme() {
+        "http" => ChamberlainClient::with_interceptor(
+            Endpoint::from_shared(cli.addr.to_string())?
+                .connect()
+                .await?,
+            client_auth_interceptor(&token)?,
+        ),
+        "https" => {
+            let mut tls_config =
+                ClientTlsConfig::new().domain_name(cli.addr.host_str().ok_or("Invalid host")?);
+            if let Some(ca_file) = cli.ca_file {
+                tls_config = tls_config.ca_certificate(Certificate::from_pem(&fs::read(ca_file)?));
+            }
+            ChamberlainClient::with_interceptor(
+                Endpoint::from_shared(cli.addr.to_string())?
+                    .tls_config(tls_config)?
+                    .connect()
+                    .await?,
+                client_auth_interceptor(&token)?,
+            )
+        }
+        _ => {
+            return Err("Invalid scheme".into());
+        }
+    };
 
     match cli.command {
         Commands::GenerateAuthToken { password } => {
