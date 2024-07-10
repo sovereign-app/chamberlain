@@ -262,7 +262,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     continue;
                 }
 
-                tracing::debug!(
+                tracing::info!(
                     "Announcing node on {}",
                     addrs
                         .iter()
@@ -271,9 +271,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         .join(", ")
                 );
                 match announce_node.announce_node(&alias, color, addrs.clone()) {
-                    Ok(_) => {
-                        tracing::debug!("Announced node");
-                    }
+                    Ok(_) => {}
                     Err(e) => tracing::error!("Failed to announce node: {}", e),
                 }
                 tokio::select! {
