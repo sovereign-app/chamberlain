@@ -1,13 +1,19 @@
 # Chamberlain
+
 > Cashu Mint with Integrated Lightning Node
 
-**Alpha Notice**: The software is currently in alpha-testing. Use at your own risk.
+**Alpha Notice**: The software is currently in alpha-testing. Use at your own
+risk.
 
-This project aims to substantially increase the number of [Uncle Jims](https://thebitcoinmanual.com/behind-btc/nodes/uncle-jim-node/) running mints who can manage day-to-day Bitcoin transactions for friends and family.
+This project aims to substantially increase the number of
+[Uncle Jims](https://thebitcoinmanual.com/behind-btc/nodes/uncle-jim-node/)
+running mints who can manage day-to-day Bitcoin transactions for friends and
+family.
 
 ## Running the Mint
 
-Chamberlain ships with two binaries: `chamberlaind`, the long-running daemon, and `chamberlain`, the management cli tool.
+Chamberlain ships with two binaries: `chamberlaind`, the long-running daemon,
+and `chamberlain`, the management cli tool.
 
 ```
 chamberlaind --mint-url=http://mint.url:3338
@@ -54,6 +60,14 @@ Options:
           Mint description
       --mint-color <MINT_COLOR>
           Mint LN alias color
+      --mint-contact-email <MINT_CONTACT_EMAIL>
+          Mint contact email
+      --mint-contact-npub <MINT_CONTACT_NPUB>
+          Mint contact nostr public key
+      --mint-contact-twitter <MINT_CONTACT_TWITTER>
+          Mint contact twitter
+      --mint-motd <MINT_MOTD>
+          Mint message of the day
       --password <PASSWORD>
           RPC auth token password
       --log-level <LOG_LEVEL>
@@ -66,7 +80,8 @@ Options:
 
 ## Building from Source
 
-It is recommended to use [cargo](https://github.com/rust-lang/cargo) from the [rustup](https://rustup.rs/) toolchain installer.
+It is recommended to use [cargo](https://github.com/rust-lang/cargo) from the
+[rustup](https://rustup.rs/) toolchain installer.
 
 ```
 cargo build --release

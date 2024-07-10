@@ -15,8 +15,8 @@ use cdk::{
     dhke::construct_proofs,
     mint::Mint,
     nuts::{
-        CurrencyUnit, MeltBolt11Request, MeltQuoteState, MintBolt11Request, MintQuoteState,
-        PreMintSecrets, Token,
+        ContactInfo, CurrencyUnit, MeltBolt11Request, MeltQuoteState, MintBolt11Request,
+        MintQuoteState, PreMintSecrets, Token,
     },
     util::{hex, unix_time},
 };
@@ -535,6 +535,10 @@ create_config_structs!(
     (mint_name: String, "Mint name and LN alias"),
     (mint_description: String, "Mint description"),
     (mint_color: String, "Mint LN alias color"),
+    (mint_contact_email: String, "Mint contact email"),
+    (mint_contact_npub: String, "Mint contact nostr public key"),
+    (mint_contact_twitter: String, "Mint contact twitter"),
+    (mint_motd: String, "Mint message of the day"),
     (password: String, "RPC auth token password"),
     (log_level: LogLevel, "Log level"),
 );
@@ -609,6 +613,41 @@ impl Config {
         [r, g, b]
     }
 
+    pub fn mint_contact(&self) -> Option<Vec<ContactInfo>> {
+        let mut contact = Vec::new();
+        if !self.mint_contact_email.is_empty() {
+            contact.push(ContactInfo {
+                method: "email".to_string(),
+                info: self.mint_contact_email.clone(),
+            });
+        }
+        if !self.mint_contact_npub.is_empty() {
+            contact.push(ContactInfo {
+                method: "nostr".to_string(),
+                info: self.mint_contact_npub.clone(),
+            });
+        }
+        if !self.mint_contact_twitter.is_empty() {
+            contact.push(ContactInfo {
+                method: "twitter".to_string(),
+                info: self.mint_contact_twitter.clone(),
+            });
+        }
+        if contact.is_empty() {
+            None
+        } else {
+            Some(contact)
+        }
+    }
+
+    pub fn mint_motd(&self) -> Option<String> {
+        if self.mint_motd.is_empty() {
+            None
+        } else {
+            Some(self.mint_motd.clone())
+        }
+    }
+
     pub fn rpc_tls_identity(&self) -> Option<Identity> {
         let tls_dir = self.data_dir().join(TLS_DIR);
         let cert_file = tls_dir.join(TLS_CERT_FILE);
@@ -644,8 +683,12 @@ impl Default for Config {
             http_port: 3338,
             mint_url: "http://localhost:3338".parse().unwrap(),
             mint_name: "Chamberlain".to_string(),
-            mint_description: "A chamberlain powered cashu mint".to_string(),
+            mint_description: "A chamberlain powered cashu mint.".to_string(),
             mint_color: "#853DB5".to_string(),
+            mint_contact_email: "".to_string(),
+            mint_contact_npub: "".to_string(),
+            mint_contact_twitter: "".to_string(),
+            mint_motd: "".to_string(),
             password: generate_password(),
             log_level: LogLevel::Info,
         }
