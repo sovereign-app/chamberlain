@@ -70,8 +70,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Generate auth token if necessary
     let auth_token_file = config.data_dir().join(AUTH_TOKEN_FILE);
-    if fs::metadata(&auth_token_file).is_err() || config.reset_auth_token {
-        tracing::info!("Generating auth token");
+    if fs::metadata(&auth_token_file).is_err() {
+        tracing::warn!("Generating default auth token");
         let token = [0u8; 32];
         let mut file = fs::File::create(&auth_token_file)?;
         file.write_all(&token)?;

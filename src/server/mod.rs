@@ -536,7 +536,6 @@ create_config_structs!(
     (mint_description: String, "Mint description"),
     (mint_color: String, "Mint LN alias color"),
     (password: String, "RPC auth token password"),
-    (reset_auth_token: bool, "Reset the auth token"),
     (log_level: LogLevel, "Log level"),
 );
 
@@ -648,7 +647,6 @@ impl Default for Config {
             mint_description: "A chamberlain powered cashu mint".to_string(),
             mint_color: "#853DB5".to_string(),
             password: generate_password(),
-            reset_auth_token: false,
             log_level: LogLevel::Info,
         }
     }
