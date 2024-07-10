@@ -27,7 +27,7 @@ new_address=$($BITCOIN_CLI getnewaddress)
 for i in 1 2 3
 do
   $BITCOIN_CLI generatetoaddress 1 $new_address >/dev/null 2>&1
-  sleep 2
+  sleep 1
 done
 
 # STEP 5: Claim channel
