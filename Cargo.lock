@@ -348,7 +348,7 @@ checksum = "eaff6f8ce506b9773fa786672d63fc7a191ffea1be33f72bbd4aeacefca9ffc8"
 [[package]]
 name = "cdk"
 version = "0.1.1"
-source = "git+https://github.com/davidcaseria/cdk?branch=ldk#9a5c2bc9480d6c09ee5bd92148775fcc18718251"
+source = "git+https://github.com/davidcaseria/cdk?branch=ldk#82f413e97c39e0cd3ac75a0175ff6be0be64f02d"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -375,7 +375,7 @@ dependencies = [
 [[package]]
 name = "cdk-axum"
 version = "0.1.0"
-source = "git+https://github.com/davidcaseria/cdk?branch=ldk#9a5c2bc9480d6c09ee5bd92148775fcc18718251"
+source = "git+https://github.com/davidcaseria/cdk?branch=ldk#82f413e97c39e0cd3ac75a0175ff6be0be64f02d"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -391,7 +391,7 @@ dependencies = [
 [[package]]
 name = "cdk-ldk"
 version = "0.1.0"
-source = "git+https://github.com/davidcaseria/cdk?branch=ldk#9a5c2bc9480d6c09ee5bd92148775fcc18718251"
+source = "git+https://github.com/davidcaseria/cdk?branch=ldk#82f413e97c39e0cd3ac75a0175ff6be0be64f02d"
 dependencies = [
  "async-stream",
  "async-trait",
@@ -419,7 +419,7 @@ dependencies = [
 [[package]]
 name = "cdk-redb"
 version = "0.1.0"
-source = "git+https://github.com/davidcaseria/cdk?branch=ldk#9a5c2bc9480d6c09ee5bd92148775fcc18718251"
+source = "git+https://github.com/davidcaseria/cdk?branch=ldk#82f413e97c39e0cd3ac75a0175ff6be0be64f02d"
 dependencies = [
  "async-trait",
  "cdk",
@@ -639,12 +639,12 @@ dependencies = [
 
 [[package]]
 name = "darling"
-version = "0.20.9"
+version = "0.20.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "83b2eb4d90d12bdda5ed17de686c2acb4c57914f8f921b8da7e112b5a36f3fe1"
+checksum = "6f63b86c8a8826a49b8c21f08a2d07338eec8d900540f8630dc76284be802989"
 dependencies = [
- "darling_core 0.20.9",
- "darling_macro 0.20.9",
+ "darling_core 0.20.10",
+ "darling_macro 0.20.10",
 ]
 
 [[package]]
@@ -663,9 +663,9 @@ dependencies = [
 
 [[package]]
 name = "darling_core"
-version = "0.20.9"
+version = "0.20.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "622687fe0bac72a04e5599029151f5796111b90f1baaa9b544d807a5e31cd120"
+checksum = "95133861a8032aaea082871032f5815eb9e98cef03fa916ab4500513994df9e5"
 dependencies = [
  "fnv",
  "ident_case",
@@ -688,11 +688,11 @@ dependencies = [
 
 [[package]]
 name = "darling_macro"
-version = "0.20.9"
+version = "0.20.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "733cabb43482b1a1b53eee8583c2b9e8684d592215ea83efd305dd31bc2f0178"
+checksum = "d336a2a514f6ccccaa3e09b02d41d35330c07ddf03a62165fcec10bb561c7806"
 dependencies = [
- "darling_core 0.20.9",
+ "darling_core 0.20.10",
  "quote",
  "syn 2.0.70",
 ]
@@ -1362,9 +1362,9 @@ checksum = "f8478577c03552c21db0e2724ffb8986a5ce7af88107e6be5d2ee6e158c12800"
 
 [[package]]
 name = "itertools"
-version = "0.12.1"
+version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ba291022dbbd398a455acf126c1e341954079855bc60dfdda641363bd6922569"
+checksum = "413ee7dfc52ee1a4949ceeb7dbc8a33f2d6c088194d9f922fb8318faf1f01186"
 dependencies = [
  "either",
 ]
@@ -2004,6 +2004,7 @@ dependencies = [
  "pin-project-lite",
  "quinn",
  "rustls",
+ "rustls-native-certs",
  "rustls-pemfile",
  "rustls-pki-types",
  "serde",
@@ -2304,7 +2305,7 @@ version = "3.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b80d3d6b56b64335c0180e5ffde23b3c5e08c14c585b51a15bd0e95393f46703"
 dependencies = [
- "darling 0.20.9",
+ "darling 0.20.10",
  "proc-macro2",
  "quote",
  "syn 2.0.70",

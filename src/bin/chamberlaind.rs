@@ -136,7 +136,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             description: Some(config.mint_description.clone()),
             description_long: Some(config.mint_description.clone()),
             contact: config.mint_contact(),
-            nuts: Nuts::default(),
+            nuts: Nuts {
+                nut04: node.get_mint_settings(),
+                nut05: node.get_melt_settings(),
+                ..Default::default()
+            },
             motd: config.mint_motd(),
         },
         Arc::new(mint_store),
