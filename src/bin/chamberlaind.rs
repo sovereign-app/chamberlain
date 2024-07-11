@@ -16,7 +16,7 @@ use cdk::{
     cdk_lightning::MintLightning,
     mint::Mint,
     nuts::{CurrencyUnit, MintInfo, MintVersion, Nuts, PaymentMethod},
-    secp256k1::{rand::random, PublicKey},
+    secp256k1::rand::random,
 };
 use cdk_axum::{create_mint_router, LnKey};
 use cdk_ldk::{
@@ -128,7 +128,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         mint_xpriv.private_key.as_ref(),
         MintInfo {
             name: Some(config.mint_name.clone()),
-            pubkey: Some(PublicKey::from_secret_key(&secp, &node_xpriv.private_key).into()),
+            pubkey: node.get_info().await.ok().map(|i| i.node_id.into()),
             version: Some(MintVersion {
                 name: "chamberlain".to_string(),
                 version: env!("CARGO_PKG_VERSION").to_string(),
