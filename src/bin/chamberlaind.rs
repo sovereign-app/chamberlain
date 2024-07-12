@@ -144,8 +144,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             motd: config.mint_motd(),
         },
         Arc::new(mint_store),
-        cdk::Amount::ZERO,
-        0.0,
+        vec![(CurrencyUnit::Sat, (0, 64))].into_iter().collect(),
     )
     .await?;
 
