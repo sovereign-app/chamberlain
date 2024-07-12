@@ -96,13 +96,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         accept_inbound_channels: true,
         channel_handshake_config: ChannelHandshakeConfig {
             minimum_depth: 3,
+            our_htlc_minimum_msat: 1000,
+            max_inbound_htlc_value_in_flight_percent_of_channel: 100,
+            commit_upfront_shutdown_pubkey: false,
             negotiate_anchors_zero_fee_htlc_tx: false,
+            our_max_accepted_htlcs: 483,
             ..Default::default()
         },
         channel_handshake_limits: ChannelHandshakeLimits {
-            force_announced_channel_preference: false,
-            their_to_self_delay: 2016,
+            min_funding_satoshis: 1_000_000,
             max_funding_satoshis: 100_000_000,
+            force_announced_channel_preference: false,
             ..Default::default()
         },
         ..Default::default()
