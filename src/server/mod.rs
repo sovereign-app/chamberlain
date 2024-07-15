@@ -22,7 +22,7 @@ use cdk::{
 };
 use cdk_ldk::{lightning::ln::ChannelId, Node};
 use tokio_util::sync::CancellationToken;
-use tonic::{transport::Identity, Request, Response, Status};
+use tonic::{Request, Response, Status};
 use tracing_subscriber::EnvFilter;
 use url::Url;
 
@@ -31,22 +31,15 @@ use crate::rpc::{
     AnnounceNodeResponse, ClaimChannelRequest, ClaimChannelResponse, CloseChannelRequest,
     CloseChannelResponse, ConnectPeerRequest, ConnectPeerResponse, FundChannelRequest,
     FundChannelResponse, GenerateAuthTokenRequest, GenerateAuthTokenResponse, GetInfoRequest,
-    GetInfoResponse, OpenChannelRequest, OpenChannelResponse, OrderCertificateRequest,
-    OrderCertificateResponse, ProvisionCertificateRequest, ProvisionCertificateResponse,
-    SweepSpendableBalanceRequest, SweepSpendableBalanceResponse,
+    GetInfoResponse, OpenChannelRequest, OpenChannelResponse, SweepSpendableBalanceRequest,
+    SweepSpendableBalanceResponse,
 };
-
-pub(crate) mod letsencrypt;
 
 pub const AUTH_TOKEN_FILE: &str = "auth_token";
 pub const CONFIG_FILE: &str = "config.toml";
 pub const KEY_FILE: &str = "key";
 pub const MINT_DB_FILE: &str = "mint";
 pub const NODE_DIR: &str = "node";
-pub const TLS_CERT_FILE: &str = "cert.pem";
-pub const TLS_DIR: &str = "tls";
-pub const TLS_KEY_FILE: &str = "key.pem";
-pub const TLS_LET_ENCRYPT_CRED_FILE: &str = "credentials.key";
 
 #[derive(Clone)]
 pub struct RpcServer {
@@ -109,34 +102,6 @@ impl Chamberlain for RpcServer {
             network_channels: node_info.network_channels as u32,
             public_ip: public_ip::addr().await.map(|ip| ip.to_string()),
         }))
-    }
-
-    async fn order_certificate(
-        &self,
-        request: Request<OrderCertificateRequest>,
-    ) -> Result<Response<OrderCertificateResponse>, Status> {
-        let request = request.into_inner();
-        let res = letsencrypt::order_certificate(&self.config, request.domains)
-            .await
-            .map_err(|e| map_internal_error(e, "tls cert order failed"))?;
-        Ok(Response::new(res))
-    }
-
-    async fn provision_certificate(
-        &self,
-        request: Request<ProvisionCertificateRequest>,
-    ) -> Result<Response<ProvisionCertificateResponse>, Status> {
-        let request = request.into_inner();
-        letsencrypt::provision_certificate(
-            &self.config,
-            request.order_url,
-            request.challenge_urls,
-            request.domains,
-        )
-        .await
-        .map_err(|e| map_internal_error(e, "tls cert provision failed"))?;
-        self.restart_token.cancel();
-        Ok(Response::new(ProvisionCertificateResponse {}))
     }
 
     async fn announce_node(
@@ -646,18 +611,6 @@ impl Config {
         } else {
             Some(self.mint_motd.clone())
         }
-    }
-
-    pub fn rpc_tls_identity(&self) -> Option<Identity> {
-        let tls_dir = self.data_dir().join(TLS_DIR);
-        let cert_file = tls_dir.join(TLS_CERT_FILE);
-        let key_file = tls_dir.join(TLS_KEY_FILE);
-        if fs::metadata(&cert_file).is_err() || fs::metadata(&key_file).is_err() {
-            return None;
-        }
-        let cert = std::fs::read_to_string(cert_file).ok()?;
-        let key = std::fs::read_to_string(key_file).ok()?;
-        Some(Identity::from_pem(cert, key))
     }
 
     pub fn save(&self) -> Result<(), Box<dyn std::error::Error>> {

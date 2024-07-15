@@ -32,7 +32,7 @@ use clap::Parser;
 use futures::StreamExt;
 use tokio::{net::TcpListener, signal::unix::SignalKind};
 use tokio_util::sync::CancellationToken;
-use tonic::transport::{Server, ServerTlsConfig};
+use tonic::transport::Server;
 
 #[tokio::main(flavor = "multi_thread")]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -170,12 +170,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 restart_token.clone(),
             );
             let mut server = Server::builder();
-            if let Some(identity) = rpc_config.rpc_tls_identity() {
-                tracing::info!("Using TLS identity");
-                server = server
-                    .tls_config(ServerTlsConfig::new().identity(identity))
-                    .expect("Invalid TLS config");
-            }
             let svc = ChamberlainServer::with_interceptor(
                 rpc_server.clone(),
                 server_auth_interceptor_from_file(rpc_config.data_dir().join(AUTH_TOKEN_FILE))

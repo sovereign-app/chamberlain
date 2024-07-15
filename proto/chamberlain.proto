@@ -5,8 +5,6 @@ package chamberlain;
 service Chamberlain {
     rpc GenerateAuthToken(GenerateAuthTokenRequest) returns (GenerateAuthTokenResponse) {}
     rpc GetInfo(GetInfoRequest) returns (GetInfoResponse) {}
-    rpc OrderCertificate(OrderCertificateRequest) returns (OrderCertificateResponse) {}
-    rpc ProvisionCertificate(ProvisionCertificateRequest) returns (ProvisionCertificateResponse) {}
     rpc AnnounceNode(AnnounceNodeRequest) returns (AnnounceNodeResponse) {}
     rpc ConnectPeer(ConnectPeerRequest) returns (ConnectPeerResponse) {}
     rpc OpenChannel(OpenChannelRequest) returns (OpenChannelResponse) {}
@@ -38,25 +36,6 @@ message GetInfoResponse {
     uint32 network_nodes = 8;
     uint32 network_channels = 9;
     optional string public_ip = 10;
-}
-
-message OrderCertificateRequest {
-    repeated string domains = 1;
-}
-
-message OrderCertificateResponse {
-    string order_url = 1;
-    map<string, string> challenge_records = 2;
-    repeated string challenge_urls = 3;
-}
-
-message ProvisionCertificateRequest {
-    string order_url = 1;
-    repeated string challenge_urls = 2;
-    repeated string domains = 3;
-}
-
-message ProvisionCertificateResponse {
 }
 
 message AnnounceNodeRequest {
