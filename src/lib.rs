@@ -4,6 +4,7 @@ pub mod server;
 pub mod rpc {
     use std::{
         collections::HashSet,
+        fs, io,
         path::Path,
         str::FromStr,
         sync::{Arc, Mutex},
@@ -11,11 +12,22 @@ pub mod rpc {
     };
 
     use base64::engine::{general_purpose, Engine};
+    use fast_socks5::{
+        client::{Config, Socks5Stream},
+        SocksError,
+    };
     use hmac::{Hmac, Mac};
+    use hyper_util::rt::TokioIo;
     use sha2::Sha256;
     use spake2::{Ed25519Group, Identity, Password, Spake2};
     use subtle::ConstantTimeEq;
-    use tonic::{Request, Status};
+    use tokio::net::lookup_host;
+    use tonic::{
+        transport::{Certificate, Channel, ClientTlsConfig, Endpoint, Uri},
+        Request, Status,
+    };
+    use tower::service_fn;
+    use url::Url;
     use uuid::Uuid;
 
     const AUTHORIZATION_HEADER: &str = "authorization";
@@ -23,6 +35,63 @@ pub mod rpc {
     const REQUEST_ID_HEADER: &str = "request-id";
 
     tonic::include_proto!("chamberlain");
+
+    pub async fn create_channel<P: AsRef<Path>>(
+        addr: Url,
+        proxy: Option<Url>,
+        ca_file: Option<P>,
+    ) -> Result<Channel, Box<dyn std::error::Error>> {
+        let proxy_addr = if let Some(proxy) = proxy {
+            if !proxy.scheme().starts_with("socks5") {
+                return Err("Invalid proxy scheme".into());
+            }
+            let host = proxy.host_str().ok_or("Invalid host")?;
+            let port = proxy.port().ok_or("Invalid port")?;
+            let mut addrs = lookup_host(format!("{}:{}", host, port)).await?;
+            Some(addrs.next().ok_or_else(|| {
+                io::Error::new(io::ErrorKind::AddrNotAvailable, "No addresses found")
+            })?)
+        } else {
+            None
+        };
+        let mut endpoint = Endpoint::from_shared(addr.to_string())?;
+        if addr.scheme() == "https" {
+            let mut tls_config = ClientTlsConfig::new();
+            if let Some(ca_file) = ca_file {
+                tls_config = tls_config.ca_certificate(Certificate::from_pem(&fs::read(ca_file)?));
+            }
+            endpoint = endpoint.tls_config(tls_config)?;
+        }
+        let channel = match proxy_addr {
+            Some(proxy_addr) => {
+                endpoint
+                    .connect_with_connector(service_fn(move |uri: Uri| async move {
+                        let host = uri.host().ok_or(io::Error::new(
+                            io::ErrorKind::InvalidInput,
+                            "Invalid URI host",
+                        ))?;
+                        let port = uri.port_u16().unwrap_or(80);
+                        Ok::<_, io::Error>(TokioIo::new(
+                            Socks5Stream::connect(
+                                proxy_addr,
+                                host.to_string(),
+                                port,
+                                Config::default(),
+                            )
+                            .await
+                            .map_err(|e| match e {
+                                SocksError::Io(e) => e,
+                                _ => io::Error::new(io::ErrorKind::Other, e),
+                            })?
+                            .get_socket(),
+                        ))
+                    }))
+                    .await?
+            }
+            None => endpoint.connect().await?,
+        };
+        Ok(channel)
+    }
 
     pub fn client_auth_interceptor(
         token: &[u8],

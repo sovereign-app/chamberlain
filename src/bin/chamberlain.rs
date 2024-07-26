@@ -1,26 +1,16 @@
-use std::{fs, io, net::SocketAddr, path::PathBuf};
+use std::{fs, net::SocketAddr, path::PathBuf};
 
 use base64::{engine::general_purpose, Engine};
 use bitcoin::Network;
 use cdk::util::hex;
 use chamberlain::rpc::{
-    chamberlain_client::ChamberlainClient, client_auth_interceptor, finish_auth_token_base64,
-    start_auth_token, AnnounceNodeRequest, ClaimChannelRequest, CloseChannelRequest,
-    ConnectPeerRequest, FundChannelRequest, GenerateAuthTokenRequest, GetInfoRequest,
-    OpenChannelRequest, SweepSpendableBalanceRequest,
+    chamberlain_client::ChamberlainClient, client_auth_interceptor, create_channel,
+    finish_auth_token_base64, start_auth_token, AnnounceNodeRequest, ClaimChannelRequest,
+    CloseChannelRequest, ConnectPeerRequest, FundChannelRequest, GenerateAuthTokenRequest,
+    GetInfoRequest, OpenChannelRequest, SweepSpendableBalanceRequest,
 };
 use clap::{Parser, Subcommand};
-use fast_socks5::{
-    client::{Config, Socks5Stream},
-    SocksError,
-};
-use hyper_util::rt::TokioIo;
-use tokio::net::lookup_host;
-use tonic::{
-    transport::{Certificate, ClientTlsConfig, Endpoint, Uri},
-    Request,
-};
-use tower::service_fn;
+use tonic::Request;
 use url::Url;
 
 #[derive(Parser)]
@@ -146,59 +136,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         fs::read(token_file)?
     };
 
-    // TODO DRY
-    let proxy_addr =
-        if let Some(proxy) = cli.proxy {
-            if !proxy.scheme().starts_with("socks5") {
-                return Err("Invalid proxy scheme".into());
-            }
-            let host = proxy.host_str().ok_or("Invalid host")?;
-            let port = proxy.port().ok_or("Invalid port")?;
-            let mut addrs = lookup_host(format!("{}:{}", host, port)).await?;
-            Some(addrs.next().ok_or_else(|| {
-                io::Error::new(io::ErrorKind::AddrNotAvailable, "No addresses found")
-            })?)
-        } else {
-            None
-        };
-
-    let mut endpoint = Endpoint::from_shared(cli.addr.to_string())?;
-    if cli.addr.scheme() == "https" {
-        let mut tls_config = ClientTlsConfig::new();
-        if let Some(ca_file) = cli.ca_file {
-            tls_config = tls_config.ca_certificate(Certificate::from_pem(&fs::read(ca_file)?));
-        }
-        endpoint = endpoint.tls_config(tls_config)?;
-    }
-    let channel = match proxy_addr {
-        Some(proxy_addr) => {
-            endpoint
-                .connect_with_connector(service_fn(move |uri: Uri| async move {
-                    let host = uri.host().ok_or(io::Error::new(
-                        io::ErrorKind::InvalidInput,
-                        "Invalid URI host",
-                    ))?;
-                    let port = uri.port_u16().unwrap_or(80);
-                    Ok::<_, io::Error>(TokioIo::new(
-                        Socks5Stream::connect(
-                            proxy_addr,
-                            host.to_string(),
-                            port,
-                            Config::default(),
-                        )
-                        .await
-                        .map_err(|e| match e {
-                            SocksError::Io(e) => e,
-                            _ => io::Error::new(io::ErrorKind::Other, e),
-                        })?
-                        .get_socket(),
-                    ))
-                }))
-                .await?
-        }
-        None => endpoint.connect().await?,
-    };
-    let mut client = ChamberlainClient::with_interceptor(channel, client_auth_interceptor(&token)?);
+    let mut client = ChamberlainClient::with_interceptor(
+        create_channel(cli.addr, cli.proxy, cli.ca_file).await?,
+        client_auth_interceptor(&token)?,
+    );
 
     match cli.command {
         Commands::GenerateAuthToken { password } => {
