@@ -15,9 +15,7 @@ server = [
     "clap",
     "dirs",
     "futures",
-    "instant-acme",
     "public-ip",
-    "rcgen",
     "rpassword",
     "serde_json",
     "tokio",
@@ -35,12 +33,12 @@ cdk-ldk = { git = "https://github.com/davidcaseria/cdk", branch = "ldk", optiona
 cdk-redb = { git = "https://github.com/davidcaseria/cdk", branch = "ldk", optional = true }
 clap = { version = "4.5.4", features = ["derive", "cargo"], optional = true }
 dirs = { version = "5.0.1", optional = true }
+fast-socks5 = "0.9.6"
 futures = { version = "0.3.28", optional = true }
 hmac = "0.12.1"
-instant-acme = { version = "0.6.1", optional = true }
+hyper-util = { version = "0.1.6", features = ["tokio"] }
 prost = "0.13.1"
 public-ip = { version = "0.2.2", optional = true }
-rcgen = { version = "0.13.1", optional = true }
 rpassword = { version = "7.3.1", optional = true }
 serde = { version = "1.0.203", features = ["derive"] }
 serde_json = { version = "1.0.66", optional = true }
@@ -55,10 +53,12 @@ tokio = { version = "1", features = [
 tokio-util = { version = "0.7.11", optional = true }
 toml = "0.8.14"
 tonic = { version = "0.12.0", features = [
+    "channel",
     "tls",
     "tls-roots",
     "tls-webpki-roots",
 ] }
+tower = "0.4.13"
 tracing = { version = "0.1.40", features = ["log"] }
 tracing-subscriber = { version = "0.3.18", features = [
     "env-filter",

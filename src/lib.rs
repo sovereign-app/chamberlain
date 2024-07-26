@@ -18,11 +18,11 @@ pub mod rpc {
     use tonic::{Request, Status};
     use uuid::Uuid;
 
-    tonic::include_proto!("chamberlain");
-
     const AUTHORIZATION_HEADER: &str = "authorization";
     const HMAC_PREFIX: &str = "HMAC-SHA256 ";
     const REQUEST_ID_HEADER: &str = "request-id";
+
+    tonic::include_proto!("chamberlain");
 
     pub fn client_auth_interceptor(
         token: &[u8],

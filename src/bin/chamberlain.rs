@@ -1,4 +1,4 @@
-use std::{fs, net::SocketAddr, path::PathBuf};
+use std::{fs, io, net::SocketAddr, path::PathBuf};
 
 use base64::{engine::general_purpose, Engine};
 use bitcoin::Network;
@@ -10,10 +10,16 @@ use chamberlain::rpc::{
     OpenChannelRequest, SweepSpendableBalanceRequest,
 };
 use clap::{Parser, Subcommand};
+use fast_socks5::{
+    client::{Config, Socks5Stream},
+    SocksError,
+};
+use hyper_util::rt::TokioIo;
 use tonic::{
-    transport::{Certificate, ClientTlsConfig, Endpoint},
+    transport::{Certificate, ClientTlsConfig, Endpoint, Uri},
     Request,
 };
+use tower::service_fn;
 use url::Url;
 
 #[derive(Parser)]
@@ -28,15 +34,19 @@ struct Cli {
     network: Network,
 
     /// Certificate authority file
-    #[arg(long)]
+    #[arg(short, long)]
     ca_file: Option<PathBuf>,
+
+    /// Socks5 proxy
+    #[arg(short, long)]
+    proxy: Option<SocketAddr>,
 
     /// Auth token
     #[arg(short, long)]
     token: Option<String>,
 
     /// Auth token file
-    #[arg(long, default_value = "~/.chamberlain/auth_token")]
+    #[arg(short = 'f', long, default_value = "~/.chamberlain/auth_token")]
     token_file: PathBuf,
 
     #[command(subcommand)]
@@ -135,30 +145,61 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         fs::read(token_file)?
     };
 
-    let mut client = match cli.addr.scheme() {
-        "http" => ChamberlainClient::with_interceptor(
-            Endpoint::from_shared(cli.addr.to_string())?
-                .connect()
-                .await?,
-            client_auth_interceptor(&token)?,
-        ),
-        "https" => {
-            let mut tls_config =
-                ClientTlsConfig::new().domain_name(cli.addr.host_str().ok_or("Invalid host")?);
-            if let Some(ca_file) = cli.ca_file {
-                tls_config = tls_config.ca_certificate(Certificate::from_pem(&fs::read(ca_file)?));
+    // TODO DRY
+    let mut client = match cli.proxy {
+        Some(proxy) => {
+            let mut endpoint = Endpoint::from_shared(cli.addr.to_string())?;
+            if cli.addr.scheme() == "https" {
+                let tls_config =
+                    ClientTlsConfig::new().domain_name(cli.addr.host_str().ok_or("Invalid host")?);
+                endpoint = endpoint.tls_config(tls_config)?;
             }
-            ChamberlainClient::with_interceptor(
+            let channel = endpoint
+                .connect_with_connector(service_fn(move |uri: Uri| async move {
+                    let host = uri.host().ok_or(io::Error::new(
+                        io::ErrorKind::InvalidInput,
+                        "Invalid URI host",
+                    ))?;
+                    let port = uri.port_u16().unwrap_or(80);
+                    Ok::<_, io::Error>(TokioIo::new(
+                        Socks5Stream::connect(proxy, host.to_string(), port, Config::default())
+                            .await
+                            .map_err(|e| match e {
+                                SocksError::Io(e) => e,
+                                _ => io::Error::new(io::ErrorKind::Other, e),
+                            })?
+                            .get_socket(),
+                    ))
+                }))
+                .await?;
+            ChamberlainClient::with_interceptor(channel, client_auth_interceptor(&token)?)
+        }
+        None => match cli.addr.scheme() {
+            "http" => ChamberlainClient::with_interceptor(
                 Endpoint::from_shared(cli.addr.to_string())?
-                    .tls_config(tls_config)?
                     .connect()
                     .await?,
                 client_auth_interceptor(&token)?,
-            )
-        }
-        _ => {
-            return Err("Invalid scheme".into());
-        }
+            ),
+            "https" => {
+                let mut tls_config =
+                    ClientTlsConfig::new().domain_name(cli.addr.host_str().ok_or("Invalid host")?);
+                if let Some(ca_file) = cli.ca_file {
+                    tls_config =
+                        tls_config.ca_certificate(Certificate::from_pem(&fs::read(ca_file)?));
+                }
+                ChamberlainClient::with_interceptor(
+                    Endpoint::from_shared(cli.addr.to_string())?
+                        .tls_config(tls_config)?
+                        .connect()
+                        .await?,
+                    client_auth_interceptor(&token)?,
+                )
+            }
+            _ => {
+                return Err("Invalid scheme".into());
+            }
+        },
     };
 
     match cli.command {
