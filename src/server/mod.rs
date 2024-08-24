@@ -101,6 +101,7 @@ impl Chamberlain for RpcServer {
             network_nodes: node_info.network_nodes as u32,
             network_channels: node_info.network_channels as u32,
             public_ip: public_ip::addr().await.map(|ip| ip.to_string()),
+            claimable_balance: node_info.claimable_balance.into(),
         }))
     }
 
@@ -306,8 +307,9 @@ impl Chamberlain for RpcServer {
             .map_err(|_| Status::invalid_argument("invalid token"))?;
         let channel_balance = self
             .node
-            .get_current_channel_balance(channel_id)
-            .map_err(|e| map_internal_error(e, "channel balance not available"))?;
+            .get_channel_info(channel_id)
+            .map_err(|e| map_internal_error(e, "channel not available"))?
+            .balance;
         if token.value() != channel_balance {
             return Err(Status::invalid_argument("incorrect token amount"));
         }
