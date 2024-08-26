@@ -169,7 +169,7 @@ dependencies = [
  "serde_urlencoded",
  "sync_wrapper 1.0.1",
  "tokio",
- "tower",
+ "tower 0.4.13",
  "tower-layer",
  "tower-service",
  "tracing",
@@ -351,7 +351,7 @@ dependencies = [
 [[package]]
 name = "cdk"
 version = "0.2.0"
-source = "git+https://github.com/davidcaseria/cdk?branch=ldk#20108064967595cab1c84706840b97dd14709d02"
+source = "git+https://github.com/davidcaseria/cdk?branch=ldk#32b98fc9972556a02506c6bf4303a48496c85a7c"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -378,7 +378,7 @@ dependencies = [
 [[package]]
 name = "cdk-axum"
 version = "0.1.0"
-source = "git+https://github.com/davidcaseria/cdk?branch=ldk#20108064967595cab1c84706840b97dd14709d02"
+source = "git+https://github.com/davidcaseria/cdk?branch=ldk#32b98fc9972556a02506c6bf4303a48496c85a7c"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -394,7 +394,7 @@ dependencies = [
 [[package]]
 name = "cdk-ldk"
 version = "0.1.0"
-source = "git+https://github.com/davidcaseria/cdk?branch=ldk#20108064967595cab1c84706840b97dd14709d02"
+source = "git+https://github.com/davidcaseria/cdk?branch=ldk#32b98fc9972556a02506c6bf4303a48496c85a7c"
 dependencies = [
  "async-stream",
  "async-trait",
@@ -422,7 +422,7 @@ dependencies = [
 [[package]]
 name = "cdk-redb"
 version = "0.2.0"
-source = "git+https://github.com/davidcaseria/cdk?branch=ldk#20108064967595cab1c84706840b97dd14709d02"
+source = "git+https://github.com/davidcaseria/cdk?branch=ldk#32b98fc9972556a02506c6bf4303a48496c85a7c"
 dependencies = [
  "async-trait",
  "cdk",
@@ -471,7 +471,7 @@ dependencies = [
  "toml",
  "tonic",
  "tonic-build",
- "tower",
+ "tower 0.5.0",
  "tracing",
  "tracing-subscriber",
  "url",
@@ -1259,7 +1259,7 @@ dependencies = [
  "pin-project-lite",
  "socket2 0.5.7",
  "tokio",
- "tower",
+ "tower 0.4.13",
  "tower-service",
  "tracing",
 ]
@@ -1699,9 +1699,9 @@ dependencies = [
 
 [[package]]
 name = "prettyplease"
-version = "0.2.20"
+version = "0.2.22"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5f12335488a2f3b0a83b14edad48dca9879ce89b2edd10e80237e4e852dd645e"
+checksum = "479cf940fbbb3426c32c5d5176f62ad57549a0bb84773423ba8be9d089f5faba"
 dependencies = [
  "proc-macro2",
  "syn 2.0.76",
@@ -1889,9 +1889,9 @@ dependencies = [
 
 [[package]]
 name = "redb"
-version = "2.1.1"
+version = "2.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a6dd20d3cdeb9c7d2366a0b16b93b35b75aec15309fbeb7ce477138c9f68c8c0"
+checksum = "58323dc32ea52a8ae105ff94bc0460c5d906307533ba3401aa63db3cbe491fe5"
 dependencies = [
  "libc",
 ]
@@ -2651,7 +2651,7 @@ dependencies = [
  "tokio",
  "tokio-rustls",
  "tokio-stream",
- "tower",
+ "tower 0.4.13",
  "tower-layer",
  "tower-service",
  "tracing",
@@ -2688,6 +2688,20 @@ dependencies = [
  "tower-layer",
  "tower-service",
  "tracing",
+]
+
+[[package]]
+name = "tower"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "36b837f86b25d7c0d7988f00a54e74739be6477f2aac6201b8f429a7569991b7"
+dependencies = [
+ "futures-core",
+ "futures-util",
+ "pin-project-lite",
+ "sync_wrapper 0.1.2",
+ "tower-layer",
+ "tower-service",
 ]
 
 [[package]]

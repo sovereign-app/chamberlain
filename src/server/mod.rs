@@ -102,6 +102,7 @@ impl Chamberlain for RpcServer {
             network_channels: node_info.network_channels as u32,
             public_ip: public_ip::addr().await.map(|ip| ip.to_string()),
             claimable_balance: node_info.claimable_balance.into(),
+            next_claimable_height: node_info.next_claimable_height,
         }))
     }
 

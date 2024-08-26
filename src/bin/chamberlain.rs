@@ -174,6 +174,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             if info.claimable_balance > 0 {
                 println!("claimable:        {} sat", info.claimable_balance);
             }
+            if let Some(next_claimable_height) = info.next_claimable_height {
+                println!("next claimable:   Block {}", next_claimable_height);
+            }
             println!("inbound:          {} sat", info.inbound_liquidity);
             println!("network nodes:    {}", info.network_nodes);
             println!("network channels: {}", info.network_channels);

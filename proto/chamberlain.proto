@@ -37,6 +37,7 @@ message GetInfoResponse {
     uint32 network_channels = 9;
     optional string public_ip = 10;
     uint64 claimable_balance = 11;
+    optional uint32 next_claimable_height = 12;
 }
 
 message AnnounceNodeRequest {
