@@ -10,7 +10,7 @@ services:
       context: https://github.com/asmogo/nws.git
       dockerfile: cmd/exit/Dockerfile
     container_name: exit-https
-    command: [ "./exit", "--port", "4443", "--target", "http://mint:3338" ]
+    command: [ "./nws", "exit", "--port", "4443", "--target", "http://mint:3338" ]
     environment:
       - NOSTR_RELAYS=${NOSTR_RELAYS}
       - NOSTR_PRIVATE_KEY=${NOSTR_PRIVATE_KEY}
