@@ -1,0 +1,19 @@
+services:
+  chamberlain:
+    build: .
+    container_name: chamberlain
+    ports:
+      - "3338"
+      - "3339"
+  exit-https:
+    build:
+      context: https://github.com/asmogo/nws.git
+      dockerfile: cmd/exit/Dockerfile
+    container_name: exit-https
+    command: [ "./exit", "--port", "4443", "--target", "http://mint:3338" ]
+    environment:
+      - NOSTR_RELAYS=${NOSTR_RELAYS}
+      - NOSTR_PRIVATE_KEY=${NOSTR_PRIVATE_KEY}
+      - BACKEND_HOST=:4443
+    depends_on:
+      - chamberlain
