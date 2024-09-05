@@ -146,6 +146,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 ..Default::default()
             },
             motd: config.mint_motd(),
+            ..Default::default()
         },
         Arc::new(mint_store),
         vec![(CurrencyUnit::Sat, (0, 64))].into_iter().collect(),
