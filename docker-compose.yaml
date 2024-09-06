@@ -5,6 +5,8 @@ services:
     ports:
       - "3338"
       - "3339"
+    volumes:
+      - ./data:/root/.chamberlain:Z
   exit-https:
     build:
       context: https://github.com/asmogo/nws.git
