@@ -8,9 +8,9 @@ use std::{
 };
 
 use bitcoin::{
-    bip32::{ChildNumber, ExtendedPrivKey},
+    bip32::{ChildNumber, Xpriv},
     key::Secp256k1,
-    Network,
+    Network, NetworkKind,
 };
 use cdk::{
     cdk_lightning::MintLightning,
@@ -30,7 +30,7 @@ use chamberlain::{
 };
 use clap::Parser;
 use futures::StreamExt;
-use tokio::{net::TcpListener, signal::unix::SignalKind};
+use tokio::signal::unix::SignalKind;
 use tokio_util::sync::CancellationToken;
 use tonic::transport::Server;
 
@@ -63,7 +63,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     if fs::metadata(&key_file).is_err() {
         tracing::info!("Generating key");
         let seed: [u8; 32] = random();
-        let key = ExtendedPrivKey::new_master(config.network, &seed)?;
+        let key = Xpriv::new_master(config.network, &seed)?;
         let mut file = fs::File::create(&key_file)?;
         file.write_all(&key.encode())?;
     }
@@ -78,16 +78,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // Load key
-    let xpriv = ExtendedPrivKey::decode(&fs::read(&key_file)?)?;
-    if config.network == Network::Bitcoin && xpriv.network != Network::Bitcoin {
+    let xpriv = Xpriv::decode(&fs::read(&key_file)?)?;
+    if config.network == Network::Bitcoin && xpriv.network != NetworkKind::Main {
         return Err("Key was not generated for mainnet".into());
     }
-    if xpriv.network == Network::Bitcoin && config.network != Network::Bitcoin {
+    if xpriv.network == NetworkKind::Main && config.network != Network::Bitcoin {
         return Err("Using mainnet key for testing!".into());
     }
     let secp = Secp256k1::new();
-    let node_xpriv = xpriv.ckd_priv(&secp, ChildNumber::from_hardened_idx(0)?)?;
-    let mint_xpriv = xpriv.ckd_priv(&secp, ChildNumber::from_hardened_idx(1)?)?;
+    let node_xpriv = xpriv.derive_priv(&secp, &ChildNumber::from_hardened_idx(0)?)?;
+    let mint_xpriv = xpriv.derive_priv(&secp, &ChildNumber::from_hardened_idx(1)?)?;
 
     // Start lightning node
     tracing::info!("Starting lightning node");
@@ -128,7 +128,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing::info!("Starting mint");
     let mint_store = MintRedbDatabase::new(&config.data_dir().join(MINT_DB_FILE))?;
     let mint = Mint::new(
-        config.mint_url.as_str(),
+        &config.mint_url.to_string(),
         mint_xpriv.private_key.as_ref(),
         MintInfo {
             name: Some(config.mint_name.clone()),
@@ -202,24 +202,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             Arc::new(http_node)
                 as Arc<dyn MintLightning<Err = cdk::cdk_lightning::Error> + Send + Sync + 'static>,
         );
-        match create_mint_router(http_config.mint_url.as_str(), Arc::new(http_mint), ln, 3600).await
+        match create_mint_router(
+            &http_config.mint_url.to_string(),
+            Arc::new(http_mint),
+            ln,
+            3600,
+        )
+        .await
         {
-            Ok(router) => {
+            Ok(v1_service) => {
                 let addr = SocketAddr::new(http_config.http_host, http_config.http_port);
-                match TcpListener::bind(&addr).await {
-                    Ok(listener) => {
-                        if let Err(e) = axum::serve(listener, router)
-                            .with_graceful_shutdown(async move {
-                                http_cancel_token.cancelled().await;
-                            })
-                            .await
-                        {
-                            tracing::error!("HTTP server error: {}", e);
-                        }
-                    }
-                    Err(e) => {
-                        tracing::error!("Failed to bind HTTP server: {}", e);
-                    }
+                if let Err(e) = axum::Server::bind(&addr)
+                    .serve(v1_service.into_make_service())
+                    .with_graceful_shutdown(async move {
+                        http_cancel_token.cancelled().await;
+                    })
+                    .await
+                {
+                    tracing::error!("HTTP server error: {}", e);
                 }
             }
             Err(e) => {

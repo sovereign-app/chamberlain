@@ -23,9 +23,9 @@ server = [
 ]
 
 [dependencies]
-axum = { version = "0.7.5", optional = true }
+axum = { version = "0.6.20", optional = true }
 base64 = "0.22.1"
-bitcoin = { version = "0.30", optional = true }
+bitcoin = { version = "0.32.2", optional = true }
 cdk = { git = "https://github.com/davidcaseria/cdk", branch = "ldk", optional = true }
 cdk-axum = { git = "https://github.com/davidcaseria/cdk", branch = "ldk", optional = true }
 cdk-ldk = { git = "https://github.com/davidcaseria/cdk", branch = "ldk", optional = true }
@@ -36,7 +36,7 @@ fast-socks5 = "0.9.6"
 futures = { version = "0.3.28", optional = true }
 hmac = "0.12.1"
 hyper-util = { version = "0.1.6", features = ["tokio"] }
-prost = "0.13.1"
+prost = "0.13.3"
 public-ip = { version = "0.2.2", optional = true }
 rpassword = { version = "7.3.1", optional = true }
 serde = { version = "1.0.203", features = ["derive"] }
@@ -48,7 +48,7 @@ tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal"] }
 tokio-util = { version = "0.7.11", optional = true }
 toml = "0.8.14"
 tonic = { version = "0.12.2", features = ["channel", "tls"] }
-tower = { version = "0.5.0", features = ["util"] }
+tower = { version = "0.5.1", features = ["util"] }
 tracing = { version = "0.1.40", features = ["log"] }
 tracing-subscriber = { version = "0.3.18", features = [
     "env-filter",

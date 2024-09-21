@@ -14,13 +14,14 @@ use cdk::{
     amount::{Amount, SplitTarget},
     dhke::construct_proofs,
     mint::Mint,
+    mint_url::MintUrl,
     nuts::{
         ContactInfo, CurrencyUnit, MeltBolt11Request, MeltQuoteState, MintBolt11Request,
         MintQuoteState, PreMintSecrets, Token,
     },
     util::{hex, unix_time},
 };
-use cdk_ldk::{lightning::ln::ChannelId, Node};
+use cdk_ldk::{lightning::ln::types::ChannelId, Node};
 use tokio_util::sync::CancellationToken;
 use tonic::{Request, Response, Status};
 use tracing_subscriber::EnvFilter;
@@ -311,7 +312,11 @@ impl Chamberlain for RpcServer {
             .get_channel_info(channel_id)
             .map_err(|e| map_internal_error(e, "channel not available"))?
             .balance;
-        if token.value() != channel_balance {
+        if token
+            .value()
+            .map_err(|_| Status::invalid_argument("invalid token amount"))?
+            != channel_balance
+        {
             return Err(Status::invalid_argument("incorrect token amount"));
         }
 
@@ -499,7 +504,7 @@ create_config_structs!(
     (rpc_port: u16, "Port to bind the RPC server"),
     (http_host: IpAddr, "Host IP to bind the HTTP server"),
     (http_port: u16, "Port to bind the HTTP server"),
-    (mint_url: Url, "Mint URL"),
+    (mint_url: MintUrl, "Mint URL"),
     (mint_name: String, "Mint name and LN alias"),
     (mint_description: String, "Mint description"),
     (mint_color: String, "Mint LN alias color"),
