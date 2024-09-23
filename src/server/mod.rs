@@ -83,6 +83,25 @@ impl Chamberlain for RpcServer {
     ) -> Result<Response<GetInfoResponse>, Status> {
         let mint_info = self.mint.mint_info();
         let node_info = self.node.get_info().await.map_err(map_ldk_error)?;
+        let total_issued = Amount::try_sum(
+            self.mint
+                .total_issued()
+                .await
+                .map_err(|_| Status::internal("mint error"))?
+                .into_iter()
+                .map(|(_, v)| v),
+        )
+        .map_err(|_| Status::internal("amount error"))?;
+        let total_redeemed = Amount::try_sum(
+            self.mint
+                .total_redeemed()
+                .await
+                .map_err(|_| Status::internal("mint error"))?
+                .into_iter()
+                .map(|(_, v)| v),
+        )
+        .map_err(|_| Status::internal("amount error"))?;
+
         Ok(Response::new(GetInfoResponse {
             name: mint_info.name.clone().unwrap_or_default(),
             description: mint_info.description.clone().unwrap_or_default(),
@@ -104,6 +123,8 @@ impl Chamberlain for RpcServer {
             public_ip: public_ip::addr().await.map(|ip| ip.to_string()),
             claimable_balance: node_info.claimable_balance.into(),
             next_claimable_height: node_info.next_claimable_height,
+            total_issued: total_issued.into(),
+            total_redeemed: total_redeemed.into(),
         }))
     }
 

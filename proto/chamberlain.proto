@@ -38,6 +38,8 @@ message GetInfoResponse {
     optional string public_ip = 10;
     uint64 claimable_balance = 11;
     optional uint32 next_claimable_height = 12;
+    uint64 total_issued = 13;
+    uint64 total_redeemed = 14;
 }
 
 message AnnounceNodeRequest {
