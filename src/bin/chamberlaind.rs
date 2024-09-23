@@ -14,7 +14,7 @@ use bitcoin::{
 };
 use cdk::{
     cdk_lightning::MintLightning,
-    mint::Mint,
+    mint::{FeeReserve, Mint},
     nuts::{CurrencyUnit, MintInfo, MintVersion, Nuts, PaymentMethod},
     secp256k1::rand::random,
 };
@@ -117,6 +117,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         rpc_client,
         *node_xpriv.private_key.as_ref(),
         ln_config,
+        FeeReserve {
+            min_fee_reserve: 1.into(),
+            percent_fee_reserve: 0.01,
+        },
         Some(SocketAddr::V4(SocketAddrV4::new(
             Ipv4Addr::UNSPECIFIED,
             config.lightning_port,
