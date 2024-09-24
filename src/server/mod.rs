@@ -32,8 +32,8 @@ use crate::rpc::{
     AnnounceNodeResponse, ClaimChannelRequest, ClaimChannelResponse, CloseChannelRequest,
     CloseChannelResponse, ConnectPeerRequest, ConnectPeerResponse, FundChannelRequest,
     FundChannelResponse, GenerateAuthTokenRequest, GenerateAuthTokenResponse, GetInfoRequest,
-    GetInfoResponse, OpenChannelRequest, OpenChannelResponse, SweepSpendableBalanceRequest,
-    SweepSpendableBalanceResponse,
+    GetInfoResponse, OpenChannelRequest, OpenChannelResponse, ReopenChannelRequest,
+    ReopenChannelResponse, SweepSpendableBalanceRequest, SweepSpendableBalanceResponse,
 };
 
 pub const AUTH_TOKEN_FILE: &str = "auth_token";
@@ -462,6 +462,33 @@ impl Chamberlain for RpcServer {
 
         Ok(Response::new(SweepSpendableBalanceResponse {
             txid: txid.to_string(),
+        }))
+    }
+
+    async fn reopen_channel(
+        &self,
+        request: Request<ReopenChannelRequest>,
+    ) -> Result<Response<ReopenChannelResponse>, Status> {
+        let request = request.into_inner();
+        tracing::info!("Re-opening channel with {}", request.node_id);
+        let (channel_id, amount) = self
+            .node
+            .reopen_channel_from_spendable_outputs(
+                request
+                    .node_id
+                    .parse()
+                    .map_err(|_| Status::invalid_argument("invalid node id"))?,
+            )
+            .await
+            .map_err(map_ldk_error)?;
+        tracing::info!(
+            "Re-opened channel for {} sats (channel_id={})",
+            amount,
+            channel_id
+        );
+        Ok(Response::new(ReopenChannelResponse {
+            channel_id: channel_id.to_string(),
+            amount: amount.into(),
         }))
     }
 }
