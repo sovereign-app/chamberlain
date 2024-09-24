@@ -97,7 +97,8 @@ message CloseChannelResponse {
 
 message SweepSpendableBalanceRequest {
     string address = 1;
-    string token = 2;
+    optional string token = 2;
+    bool force = 3;
 }
 
 message SweepSpendableBalanceResponse {

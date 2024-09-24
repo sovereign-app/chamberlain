@@ -394,8 +394,14 @@ impl Chamberlain for RpcServer {
             .map_err(|_| Status::invalid_argument("invalid address"))?
             .require_network(self.config.network)
             .map_err(|_| Status::invalid_argument("invalid address network"))?;
-        let token = Token::from_str(&request.token)
-            .map_err(|_| Status::invalid_argument("invalid token"))?;
+
+        if request.token.is_none() && !request.force {
+            return Err(Status::invalid_argument("missing token"));
+        }
+
+        if request.token.is_some() && request.force {
+            return Err(Status::invalid_argument("both token and force set"));
+        }
 
         let spendable_balance = self
             .node
@@ -403,41 +409,50 @@ impl Chamberlain for RpcServer {
             .await
             .map_err(|e| map_internal_error(e, "spendable output balance error"))?;
 
-        let mut melt_quote = self
-            .mint
-            .new_melt_quote(
-                address.to_string(),
-                CurrencyUnit::Sat,
-                spendable_balance.into(),
-                Amount::ZERO,
-                unix_time() + 60,
-                address.to_string(),
-            )
-            .await
-            .map_err(|e| map_internal_error(e, "melt quote error"))?;
+        if let Some(token) = request.token.as_ref() {
+            let token =
+                Token::from_str(token).map_err(|_| Status::invalid_argument("invalid token"))?;
 
-        melt_quote.state = MeltQuoteState::Paid;
-        self.mint
-            .update_melt_quote(melt_quote.clone())
-            .await
-            .map_err(|e| map_internal_error(e, "melt quote update error"))?;
-        self.mint
-            .process_melt_request(
-                &MeltBolt11Request {
-                    quote: melt_quote.id,
-                    inputs: token
-                        .proofs()
-                        .into_iter()
-                        .map(|(_, proofs)| proofs)
-                        .flatten()
-                        .collect(),
-                    outputs: None,
-                },
-                None,
-                spendable_balance.into(),
-            )
-            .await
-            .map_err(|e| map_internal_error(e, "melt quote process error"))?;
+            let melt_quote = self
+                .mint
+                .new_melt_quote(
+                    address.to_string(),
+                    CurrencyUnit::Sat,
+                    spendable_balance.into(),
+                    Amount::ZERO,
+                    unix_time() + 60,
+                    address.to_string(),
+                )
+                .await
+                .map_err(|e| map_internal_error(e, "melt quote error"))?;
+
+            let melt_request = MeltBolt11Request {
+                quote: melt_quote.id,
+                inputs: token
+                    .proofs()
+                    .into_iter()
+                    .map(|(_, proofs)| proofs)
+                    .flatten()
+                    .collect(),
+                outputs: None,
+            };
+
+            let mut melt_quote = self
+                .mint
+                .verify_melt_request(&melt_request)
+                .await
+                .map_err(|_| Status::invalid_argument("invalid melt request"))?;
+            melt_quote.state = MeltQuoteState::Paid;
+            self.mint
+                .update_melt_quote(melt_quote)
+                .await
+                .map_err(|e| map_internal_error(e, "melt quote update error"))?;
+
+            self.mint
+                .process_melt_request(&melt_request, None, spendable_balance.into())
+                .await
+                .map_err(|e| map_internal_error(e, "melt quote process error"))?;
+        }
 
         let txid = self
             .node

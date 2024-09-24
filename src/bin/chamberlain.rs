@@ -114,7 +114,10 @@ enum Commands {
         address: String,
         /// Token
         #[arg(long)]
-        token: String,
+        token: Option<String>,
+        /// Force (only for emergencies). Will result in unbacked e-cash.
+        #[arg(long)]
+        force: bool,
     },
 }
 
@@ -251,11 +254,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }))
                 .await?;
         }
-        Commands::SweepSpendableBalance { address, token } => {
+        Commands::SweepSpendableBalance {
+            address,
+            token,
+            force,
+        } => {
             let res = client
                 .sweep_spendable_balance(Request::new(SweepSpendableBalanceRequest {
                     address,
                     token,
+                    force,
                 }))
                 .await?
                 .into_inner();
