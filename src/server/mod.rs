@@ -471,7 +471,7 @@ impl Chamberlain for RpcServer {
     ) -> Result<Response<ReopenChannelResponse>, Status> {
         let request = request.into_inner();
         tracing::info!("Re-opening channel with {}", request.node_id);
-        let (channel_id, amount) = self
+        let channel = self
             .node
             .reopen_channel_from_spendable_outputs(
                 request
@@ -483,12 +483,16 @@ impl Chamberlain for RpcServer {
             .map_err(map_ldk_error)?;
         tracing::info!(
             "Re-opened channel for {} sats (channel_id={})",
-            amount,
-            channel_id
+            channel.amount,
+            channel.channel_id
         );
         Ok(Response::new(ReopenChannelResponse {
-            channel_id: channel_id.to_string(),
-            amount: amount.into(),
+            channel_id: channel.channel_id.to_string(),
+            address: Address::from_script(&channel.funding_script, self.config.network)
+                .map_err(|e| map_internal_error(e, "address error"))?
+                .to_string(),
+            amount: channel.amount.into(),
+            txid: channel.txid.to_string(),
         }))
     }
 }

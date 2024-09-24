@@ -7,7 +7,7 @@ use chamberlain::rpc::{
     chamberlain_client::ChamberlainClient, client_auth_interceptor, create_channel,
     finish_auth_token_base64, start_auth_token, AnnounceNodeRequest, ClaimChannelRequest,
     CloseChannelRequest, ConnectPeerRequest, FundChannelRequest, GenerateAuthTokenRequest,
-    GetInfoRequest, OpenChannelRequest, SweepSpendableBalanceRequest,
+    GetInfoRequest, OpenChannelRequest, ReopenChannelRequest, SweepSpendableBalanceRequest,
 };
 use clap::{Parser, Subcommand};
 use tonic::Request;
@@ -118,6 +118,12 @@ enum Commands {
         /// Force (only for emergencies). Will result in unbacked e-cash.
         #[arg(long)]
         force: bool,
+    },
+    /// Re-open a channel from spendable balance
+    ReopenChannel {
+        /// Node ID
+        #[arg(long)]
+        node_id: String,
     },
 }
 
@@ -268,6 +274,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .await?
                 .into_inner();
             println!("txid: {}", res.txid);
+        }
+        Commands::ReopenChannel { node_id } => {
+            let response = client
+                .reopen_channel(Request::new(ReopenChannelRequest { node_id }))
+                .await?;
+            let channel = response.into_inner();
+            println!("channel id: {}", channel.channel_id);
+            println!("txid:       {}", channel.txid);
+            println!("amount:     {}", channel.amount);
         }
     }
 
