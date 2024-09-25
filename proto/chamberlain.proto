@@ -9,6 +9,7 @@ service Chamberlain {
     rpc ConnectPeer(ConnectPeerRequest) returns (ConnectPeerResponse) {}
     rpc OpenChannel(OpenChannelRequest) returns (OpenChannelResponse) {}
     rpc FundChannel(FundChannelRequest) returns (FundChannelResponse) {}
+    rpc ReissueQuote(ReissueQuoteRequest) returns (ReissueQuoteResponse) {}
     rpc ClaimChannel(ClaimChannelRequest) returns (ClaimChannelResponse) {}
     rpc CloseChannel(CloseChannelRequest) returns (CloseChannelResponse) {}
     rpc SweepSpendableBalance(SweepSpendableBalanceRequest) returns (SweepSpendableBalanceResponse) {}
@@ -76,6 +77,14 @@ message FundChannelRequest {
 
 message FundChannelResponse {
     string channel_id = 1;
+}
+
+message ReissueQuoteRequest {
+    string channel_id = 1;
+}
+
+message ReissueQuoteResponse {
+    string quote_id = 1;
 }
 
 message ClaimChannelRequest {

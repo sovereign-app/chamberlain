@@ -7,7 +7,8 @@ use chamberlain::rpc::{
     chamberlain_client::ChamberlainClient, client_auth_interceptor, create_channel,
     finish_auth_token_base64, start_auth_token, AnnounceNodeRequest, ClaimChannelRequest,
     CloseChannelRequest, ConnectPeerRequest, FundChannelRequest, GenerateAuthTokenRequest,
-    GetInfoRequest, OpenChannelRequest, ReopenChannelRequest, SweepSpendableBalanceRequest,
+    GetInfoRequest, OpenChannelRequest, ReissueQuoteRequest, ReopenChannelRequest,
+    SweepSpendableBalanceRequest,
 };
 use clap::{Parser, Subcommand};
 use tonic::Request;
@@ -124,6 +125,12 @@ enum Commands {
         /// Node ID
         #[arg(long)]
         node_id: String,
+    },
+    /// Re-issue quote
+    ReissueQuote {
+        /// Channel ID
+        #[arg(long)]
+        channel_id: String,
     },
 }
 
@@ -283,6 +290,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("channel id: {}", channel.channel_id);
             println!("txid:       {}", channel.txid);
             println!("amount:     {}", channel.amount);
+        }
+        Commands::ReissueQuote { channel_id } => {
+            let response = client
+                .reissue_quote(Request::new(ReissueQuoteRequest { channel_id }))
+                .await?;
+            println!("quote id: {}", response.into_inner().quote_id);
         }
     }
 

@@ -32,8 +32,9 @@ use crate::rpc::{
     AnnounceNodeResponse, ClaimChannelRequest, ClaimChannelResponse, CloseChannelRequest,
     CloseChannelResponse, ConnectPeerRequest, ConnectPeerResponse, FundChannelRequest,
     FundChannelResponse, GenerateAuthTokenRequest, GenerateAuthTokenResponse, GetInfoRequest,
-    GetInfoResponse, OpenChannelRequest, OpenChannelResponse, ReopenChannelRequest,
-    ReopenChannelResponse, SweepSpendableBalanceRequest, SweepSpendableBalanceResponse,
+    GetInfoResponse, OpenChannelRequest, OpenChannelResponse, ReissueQuoteRequest,
+    ReissueQuoteResponse, ReopenChannelRequest, ReopenChannelResponse,
+    SweepSpendableBalanceRequest, SweepSpendableBalanceResponse,
 };
 
 pub const AUTH_TOKEN_FILE: &str = "auth_token";
@@ -193,7 +194,7 @@ impl Chamberlain for RpcServer {
                 address.to_string(),
                 CurrencyUnit::Sat,
                 amount,
-                unix_time() + 3600,
+                unix_time() + 60 * 60 * 24 * 7, // 1 week
                 address.to_string(),
             )
             .await
@@ -225,6 +226,36 @@ impl Chamberlain for RpcServer {
 
         Ok(Response::new(FundChannelResponse {
             channel_id: channel.to_string(),
+        }))
+    }
+
+    async fn reissue_quote(
+        &self,
+        request: Request<ReissueQuoteRequest>,
+    ) -> Result<Response<ReissueQuoteResponse>, Status> {
+        let request = request.into_inner();
+        let channel_id = parse_channel_id(&request.channel_id)?;
+        let amount = self
+            .node
+            .get_open_channel_value(channel_id)
+            .await
+            .map_err(|_| Status::internal("failed to get channel open value"))?;
+        let mint_quote = self
+            .mint
+            .new_mint_quote(
+                self.config.mint_url.clone().into(),
+                channel_id.to_string(),
+                CurrencyUnit::Sat,
+                amount,
+                unix_time() + 60 * 60 * 24 * 7, // 1 week
+                channel_id.to_string(),
+            )
+            .await
+            .map_err(|e| map_internal_error(e, "mint quote failed"))?;
+        tracing::info!("Created mint quote for channel open: {}", mint_quote.id);
+
+        Ok(Response::new(ReissueQuoteResponse {
+            quote_id: mint_quote.id,
         }))
     }
 
