@@ -290,7 +290,7 @@ impl Chamberlain for RpcServer {
             .db
             .issue_channel(channel_id.0)
             .await
-            .map_err(|_| Status::internal("claim db error"))?
+            .map_err(|e| map_internal_error(e, "issue channel error"))?
         {
             return Err(Status::failed_precondition("channel already claimed"));
         }
@@ -303,6 +303,19 @@ impl Chamberlain for RpcServer {
                 .map_err(|e| map_internal_error(e, "blind sign error"))?;
             sigs.push(sig);
         }
+        self.mint
+            .localstore
+            .add_blind_signatures(
+                &secrets
+                    .blinded_messages()
+                    .into_iter()
+                    .map(|m| m.blinded_secret)
+                    .collect::<Vec<_>>(),
+                &sigs.clone(),
+                None,
+            )
+            .await
+            .map_err(|e| map_internal_error(e, "add blind signatures error"))?;
         let proofs = construct_proofs(sigs, secrets.rs(), secrets.secrets(), &keys)
             .map_err(|e| map_internal_error(e, "construct proofs error"))?;
         let token = Token::new(
