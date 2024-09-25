@@ -107,11 +107,17 @@ impl Chamberlain for RpcServer {
         .map_err(|_| Status::internal("amount error"))?;
         let mut issuable_channels = Vec::new();
         for channel_id in node_info.channel_balances.keys() {
-            if !self
-                .db
-                .is_channel_claimed(channel_id.0)
+            let open_value = self
+                .node
+                .get_open_channel_value(*channel_id)
                 .await
-                .map_err(|_| Status::internal("db error"))?
+                .unwrap_or(Amount::ZERO);
+            if open_value > Amount::ZERO
+                && !self
+                    .db
+                    .is_channel_claimed(channel_id.0)
+                    .await
+                    .map_err(|_| Status::internal("db error"))?
             {
                 issuable_channels.push(channel_id.to_string());
             }
