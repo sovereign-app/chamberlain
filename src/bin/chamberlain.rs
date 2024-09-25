@@ -5,9 +5,9 @@ use bitcoin::Network;
 use cdk::util::hex;
 use chamberlain::rpc::{
     chamberlain_client::ChamberlainClient, client_auth_interceptor, create_channel,
-    finish_auth_token_base64, start_auth_token, AnnounceNodeRequest, ClaimChannelRequest,
-    CloseChannelRequest, ConnectPeerRequest, FundChannelRequest, GenerateAuthTokenRequest,
-    GetInfoRequest, OpenChannelRequest, ReissueQuoteRequest, ReopenChannelRequest,
+    finish_auth_token_base64, start_auth_token, AnnounceNodeRequest, CloseChannelRequest,
+    ConnectPeerRequest, FundChannelRequest, GenerateAuthTokenRequest, GetInfoRequest,
+    IssueChannelTokenRequest, OpenChannelRequest, ReopenChannelRequest,
     SweepSpendableBalanceRequest,
 };
 use clap::{Parser, Subcommand};
@@ -87,14 +87,11 @@ enum Commands {
         #[arg(long)]
         tx: String,
     },
-    /// Claim funds from a channel
-    ClaimChannel {
+    /// Issues funds from a channel as a token
+    IssueChannelToken {
         /// Channel ID
         #[arg(long)]
         channel_id: String,
-        /// Quote ID
-        #[arg(long)]
-        quote_id: String,
     },
     /// Close channel
     CloseChannel {
@@ -125,12 +122,6 @@ enum Commands {
         /// Node ID
         #[arg(long)]
         node_id: String,
-    },
-    /// Re-issue quote
-    ReissueQuote {
-        /// Channel ID
-        #[arg(long)]
-        channel_id: String,
     },
 }
 
@@ -200,7 +191,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("network channels: {}", info.network_channels);
             println!("channels:");
             for (id, balance) in info.channel_balances {
-                println!("- {}: {} sat", id, balance);
+                if info.issuable_channels.contains(&id) {
+                    println!("- {}: {} sat*", id, balance);
+                } else {
+                    println!("- {}: {} sat", id, balance);
+                }
             }
             println!("peers:");
             for (id, addr) in info.peers {
@@ -229,7 +224,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let channel = response.into_inner();
             println!("channel id: {}", channel.channel_id);
             println!("address:    {}", channel.address);
-            println!("quote id:   {}", channel.quote_id);
         }
         Commands::FundChannel { channel_id, tx } => {
             let response = client
@@ -241,15 +235,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .into_inner();
             println!("channel id: {}", response.channel_id);
         }
-        Commands::ClaimChannel {
-            channel_id,
-            quote_id,
-        } => {
+        Commands::IssueChannelToken { channel_id } => {
             let response = client
-                .claim_channel(Request::new(ClaimChannelRequest {
-                    channel_id,
-                    quote_id,
-                }))
+                .issue_channel_token(Request::new(IssueChannelTokenRequest { channel_id }))
                 .await?
                 .into_inner();
             println!("{}", response.token);
@@ -290,12 +278,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("channel id: {}", channel.channel_id);
             println!("txid:       {}", channel.txid);
             println!("amount:     {}", channel.amount);
-        }
-        Commands::ReissueQuote { channel_id } => {
-            let response = client
-                .reissue_quote(Request::new(ReissueQuoteRequest { channel_id }))
-                .await?;
-            println!("quote id: {}", response.into_inner().quote_id);
         }
     }
 

@@ -15,13 +15,11 @@ use cdk::{
     dhke::construct_proofs,
     mint::Mint,
     mint_url::MintUrl,
-    nuts::{
-        ContactInfo, CurrencyUnit, MeltBolt11Request, MeltQuoteState, MintBolt11Request,
-        MintQuoteState, PreMintSecrets, Token,
-    },
+    nuts::{ContactInfo, CurrencyUnit, MeltBolt11Request, MeltQuoteState, PreMintSecrets, Token},
     util::{hex, unix_time},
 };
 use cdk_ldk::{lightning::ln::types::ChannelId, Node};
+use db::Db;
 use tokio_util::sync::CancellationToken;
 use tonic::{Request, Response, Status};
 use tracing_subscriber::EnvFilter;
@@ -29,23 +27,26 @@ use url::Url;
 
 use crate::rpc::{
     chamberlain_server::Chamberlain, finish_auth_token, start_auth_token, AnnounceNodeRequest,
-    AnnounceNodeResponse, ClaimChannelRequest, ClaimChannelResponse, CloseChannelRequest,
-    CloseChannelResponse, ConnectPeerRequest, ConnectPeerResponse, FundChannelRequest,
-    FundChannelResponse, GenerateAuthTokenRequest, GenerateAuthTokenResponse, GetInfoRequest,
-    GetInfoResponse, OpenChannelRequest, OpenChannelResponse, ReissueQuoteRequest,
-    ReissueQuoteResponse, ReopenChannelRequest, ReopenChannelResponse,
-    SweepSpendableBalanceRequest, SweepSpendableBalanceResponse,
+    AnnounceNodeResponse, CloseChannelRequest, CloseChannelResponse, ConnectPeerRequest,
+    ConnectPeerResponse, FundChannelRequest, FundChannelResponse, GenerateAuthTokenRequest,
+    GenerateAuthTokenResponse, GetInfoRequest, GetInfoResponse, IssueChannelTokenRequest,
+    IssueChannelTokenResponse, OpenChannelRequest, OpenChannelResponse, ReopenChannelRequest,
+    ReopenChannelResponse, SweepSpendableBalanceRequest, SweepSpendableBalanceResponse,
 };
+
+mod db;
 
 pub const AUTH_TOKEN_FILE: &str = "auth_token";
 pub const CONFIG_FILE: &str = "config.toml";
 pub const KEY_FILE: &str = "key";
 pub const MINT_DB_FILE: &str = "mint";
 pub const NODE_DIR: &str = "node";
+pub const SERVER_DB_FILE: &str = "db";
 
 #[derive(Clone)]
 pub struct RpcServer {
     config: Config,
+    db: Db,
     mint: Mint,
     node: Node,
     restart_token: CancellationToken,
@@ -53,8 +54,10 @@ pub struct RpcServer {
 
 impl RpcServer {
     pub fn new(config: Config, mint: Mint, node: Node, restart_token: CancellationToken) -> Self {
+        let db = Db::open(config.data_dir().join(SERVER_DB_FILE)).expect("db open");
         Self {
             config,
+            db,
             mint,
             node,
             restart_token,
@@ -102,6 +105,17 @@ impl Chamberlain for RpcServer {
                 .map(|(_, v)| v),
         )
         .map_err(|_| Status::internal("amount error"))?;
+        let mut issuable_channels = Vec::new();
+        for channel_id in node_info.channel_balances.keys() {
+            if !self
+                .db
+                .is_channel_claimed(channel_id.0)
+                .await
+                .map_err(|_| Status::internal("db error"))?
+            {
+                issuable_channels.push(channel_id.to_string());
+            }
+        }
 
         Ok(Response::new(GetInfoResponse {
             name: mint_info.name.clone().unwrap_or_default(),
@@ -126,6 +140,7 @@ impl Chamberlain for RpcServer {
             next_claimable_height: node_info.next_claimable_height,
             total_issued: total_issued.into(),
             total_redeemed: total_redeemed.into(),
+            issuable_channels,
         }))
     }
 
@@ -187,24 +202,9 @@ impl Chamberlain for RpcServer {
         let address = Address::from_script(&channel.funding_script, self.config.network)
             .map_err(|e| map_internal_error(e, "address error"))?;
 
-        let mint_quote = self
-            .mint
-            .new_mint_quote(
-                self.config.mint_url.clone().into(),
-                address.to_string(),
-                CurrencyUnit::Sat,
-                amount,
-                unix_time() + 60 * 60 * 24 * 7, // 1 week
-                address.to_string(),
-            )
-            .await
-            .map_err(|e| map_internal_error(e, "mint quote failed"))?;
-        tracing::info!("Created mint quote for channel open: {}", mint_quote.id);
-
         Ok(Response::new(OpenChannelResponse {
             channel_id: channel.channel_id.to_string(),
             address: address.to_string(),
-            quote_id: mint_quote.id,
         }))
     }
 
@@ -223,46 +223,20 @@ impl Chamberlain for RpcServer {
             .fund_channel(channel_id, tx)
             .await
             .map_err(map_ldk_error)?;
+        self.db
+            .insert_channel(channel_id.0)
+            .await
+            .map_err(|_| Status::internal("db error"))?;
 
         Ok(Response::new(FundChannelResponse {
             channel_id: channel.to_string(),
         }))
     }
 
-    async fn reissue_quote(
+    async fn issue_channel_token(
         &self,
-        request: Request<ReissueQuoteRequest>,
-    ) -> Result<Response<ReissueQuoteResponse>, Status> {
-        let request = request.into_inner();
-        let channel_id = parse_channel_id(&request.channel_id)?;
-        let amount = self
-            .node
-            .get_open_channel_value(channel_id)
-            .await
-            .map_err(|_| Status::internal("failed to get channel open value"))?;
-        let mint_quote = self
-            .mint
-            .new_mint_quote(
-                self.config.mint_url.clone().into(),
-                channel_id.to_string(),
-                CurrencyUnit::Sat,
-                amount,
-                unix_time() + 60 * 60 * 24 * 7, // 1 week
-                channel_id.to_string(),
-            )
-            .await
-            .map_err(|e| map_internal_error(e, "mint quote failed"))?;
-        tracing::info!("Created mint quote for channel open: {}", mint_quote.id);
-
-        Ok(Response::new(ReissueQuoteResponse {
-            quote_id: mint_quote.id,
-        }))
-    }
-
-    async fn claim_channel(
-        &self,
-        request: Request<ClaimChannelRequest>,
-    ) -> Result<Response<ClaimChannelResponse>, Status> {
+        request: Request<IssueChannelTokenRequest>,
+    ) -> Result<Response<IssueChannelTokenResponse>, Status> {
         let request = request.into_inner();
         let channel_id = parse_channel_id(&request.channel_id)?;
         tracing::info!("Claiming channel {}", request.channel_id);
@@ -298,40 +272,32 @@ impl Chamberlain for RpcServer {
             .ok_or(Status::internal("no keyset found"))?
             .keys;
 
-        let mut quote = self
-            .mint
-            .mint_quotes()
+        let channel_amount = self
+            .node
+            .get_open_channel_value(channel_id)
             .await
-            .map_err(|e| map_internal_error(e, "mint quotes error"))?
-            .into_iter()
-            .find(|q| q.id == request.quote_id)
-            .ok_or(Status::not_found("quote not found"))?;
-        if quote.amount
-            != self
-                .node
-                .get_open_channel_value(channel_id)
-                .await
-                .map_err(|e| map_internal_error(e, "channel db error"))?
-        {
-            return Err(Status::failed_precondition("quote amount incorrect"));
-        }
-        quote.state = MintQuoteState::Paid;
-        self.mint
-            .update_mint_quote(quote.clone())
-            .await
-            .map_err(|e| map_internal_error(e, "mint quote update failed"))?;
+            .map_err(|e| map_internal_error(e, "channel db error"))?;
 
-        let secrets = PreMintSecrets::random(keyset_id, quote.amount, &SplitTarget::None)
+        let secrets = PreMintSecrets::random(keyset_id, channel_amount, &SplitTarget::None)
             .map_err(|e| map_internal_error(e, "secrets generation error"))?;
-        let res = self
-            .mint
-            .process_mint_request(MintBolt11Request {
-                quote: quote.id,
-                outputs: secrets.blinded_messages(),
-            })
+        if !self
+            .db
+            .issue_channel(channel_id.0)
             .await
-            .map_err(|e| map_internal_error(e, "mint processing error"))?;
-        let proofs = construct_proofs(res.signatures, secrets.rs(), secrets.secrets(), &keys)
+            .map_err(|_| Status::internal("claim db error"))?
+        {
+            return Err(Status::failed_precondition("channel already claimed"));
+        }
+        let mut sigs = Vec::new();
+        for msg in secrets.blinded_messages() {
+            let sig = self
+                .mint
+                .blind_sign(&msg)
+                .await
+                .map_err(|e| map_internal_error(e, "blind sign error"))?;
+            sigs.push(sig);
+        }
+        let proofs = construct_proofs(sigs, secrets.rs(), secrets.secrets(), &keys)
             .map_err(|e| map_internal_error(e, "construct proofs error"))?;
         let token = Token::new(
             self.config.mint_url.clone().into(),
@@ -340,7 +306,7 @@ impl Chamberlain for RpcServer {
             Some(CurrencyUnit::Sat),
         );
 
-        Ok(Response::new(ClaimChannelResponse {
+        Ok(Response::new(IssueChannelTokenResponse {
             token: token.to_string(),
         }))
     }

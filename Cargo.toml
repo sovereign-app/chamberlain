@@ -16,6 +16,7 @@ server = [
     "dirs",
     "futures",
     "public-ip",
+    "redb",
     "rpassword",
     "serde_json",
     "tokio-util",
@@ -38,6 +39,7 @@ hmac = "0.12.1"
 hyper-util = { version = "0.1.6", features = ["tokio"] }
 prost = "0.13.3"
 public-ip = { version = "0.2.2", optional = true }
+redb = { version = "2.1.3", optional = true }
 rpassword = { version = "7.3.1", optional = true }
 serde = { version = "1.0.203", features = ["derive"] }
 serde_json = { version = "1.0.66", optional = true }

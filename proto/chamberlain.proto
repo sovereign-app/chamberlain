@@ -9,8 +9,7 @@ service Chamberlain {
     rpc ConnectPeer(ConnectPeerRequest) returns (ConnectPeerResponse) {}
     rpc OpenChannel(OpenChannelRequest) returns (OpenChannelResponse) {}
     rpc FundChannel(FundChannelRequest) returns (FundChannelResponse) {}
-    rpc ReissueQuote(ReissueQuoteRequest) returns (ReissueQuoteResponse) {}
-    rpc ClaimChannel(ClaimChannelRequest) returns (ClaimChannelResponse) {}
+    rpc IssueChannelToken(IssueChannelTokenRequest) returns (IssueChannelTokenResponse) {}
     rpc CloseChannel(CloseChannelRequest) returns (CloseChannelResponse) {}
     rpc SweepSpendableBalance(SweepSpendableBalanceRequest) returns (SweepSpendableBalanceResponse) {}
     rpc ReopenChannel(ReopenChannelRequest) returns (ReopenChannelResponse) {}
@@ -42,6 +41,7 @@ message GetInfoResponse {
     optional uint32 next_claimable_height = 12;
     uint64 total_issued = 13;
     uint64 total_redeemed = 14;
+    repeated string issuable_channels = 15;
 }
 
 message AnnounceNodeRequest {
@@ -67,7 +67,6 @@ message OpenChannelRequest {
 message OpenChannelResponse {
     string channel_id = 1;
     string address = 2;
-    string quote_id = 3;
 }
 
 message FundChannelRequest {
@@ -79,20 +78,11 @@ message FundChannelResponse {
     string channel_id = 1;
 }
 
-message ReissueQuoteRequest {
+message IssueChannelTokenRequest {
     string channel_id = 1;
 }
 
-message ReissueQuoteResponse {
-    string quote_id = 1;
-}
-
-message ClaimChannelRequest {
-    string channel_id = 1;
-    string quote_id = 2;
-}
-
-message ClaimChannelResponse {
+message IssueChannelTokenResponse {
     string token = 1;
 }
 

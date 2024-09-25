@@ -576,6 +576,7 @@ dependencies = [
  "hyper-util",
  "prost",
  "public-ip",
+ "redb",
  "rpassword",
  "serde",
  "serde_json",

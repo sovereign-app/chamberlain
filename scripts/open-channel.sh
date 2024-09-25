@@ -30,5 +30,5 @@ do
   sleep 1
 done
 
-# STEP 5: Claim channel
-chamberlain claim-channel --channel-id $new_channel_id --quote-id $quote_id
+# STEP 5: Issue channel token
+chamberlain issue-channel-token --channel-id $new_channel_id --quote-id $quote_id
