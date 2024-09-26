@@ -17,8 +17,9 @@ use cdk::{
     mint::{FeeReserve, Mint},
     nuts::{CurrencyUnit, MintInfo, MintVersion, Nuts, PaymentMethod},
     secp256k1::rand::random,
+    types::LnKey,
 };
-use cdk_axum::{create_mint_router, LnKey};
+use cdk_axum::create_mint_router;
 use cdk_ldk::{
     lightning::util::config::{ChannelHandshakeConfig, ChannelHandshakeLimits, UserConfig},
     BitcoinClient, Node,
