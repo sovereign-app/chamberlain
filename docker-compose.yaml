@@ -2,15 +2,14 @@ services:
   chamberlain:
     build: .
     container_name: chamberlain
+    command: ["--network=${NETWORK}", "--mint-url=${MINT_URL}", "--bitcoind-rpc-url=${BITCOIND_RPC_URL}", "--bitcoind-rpc-user=${BITCOIND_RPC_USER}", "--bitcoind-rpc-password=${BITCOIND_RPC_PASSWORD}", "--http-host=0.0.0.0", "--rpc-host=0.0.0.0" ]
     ports:
-      - "3338"
-      - "3339"
+      - "3338:3338"
+      - "3339:3339"
     volumes:
       - ./data:/root/.chamberlain:Z
   exit-https:
-    build:
-      context: https://github.com/asmogo/nws.git
-      dockerfile: cmd/exit/Dockerfile
+    build: https://github.com/asmogo/nws.git
     container_name: exit-https
     command: [ "./nws", "exit", "--port", "4443", "--target", "http://chamberlain:3338" ]
     environment:
