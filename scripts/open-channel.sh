@@ -29,6 +29,7 @@ do
   $BITCOIN_CLI generatetoaddress 1 $new_address >/dev/null 2>&1
   sleep 1
 done
+sleep 2
 
 # STEP 5: Issue channel token
 $CHAMBERLAIN issue-channel-token --channel-id $new_channel_id
