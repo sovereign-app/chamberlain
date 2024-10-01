@@ -17,7 +17,7 @@ use cdk::{
     mint::{FeeReserve, Mint},
     nuts::{CurrencyUnit, MintInfo, MintVersion, Nuts, PaymentMethod},
     secp256k1::rand::random,
-    types::LnKey,
+    types::{LnKey, QuoteTTL},
 };
 use cdk_axum::create_mint_router;
 use cdk_ldk::{
@@ -132,6 +132,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Start mint
     tracing::info!("Starting mint");
     let mint_store = MintRedbDatabase::new(&config.data_dir().join(MINT_DB_FILE))?;
+    let mut ln = HashMap::new();
+    ln.insert(
+        LnKey::new(CurrencyUnit::Sat, PaymentMethod::Bolt11),
+        Arc::new(node.clone())
+            as Arc<dyn MintLightning<Err = cdk::cdk_lightning::Error> + Send + Sync + 'static>,
+    );
     let mint = Mint::new(
         &config.mint_url.to_string(),
         mint_xpriv.private_key.as_ref(),
@@ -153,7 +159,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             motd: config.mint_motd(),
             ..Default::default()
         },
+        QuoteTTL::new(60, 60),
         Arc::new(mint_store),
+        ln,
         vec![(CurrencyUnit::Sat, (0, 64))].into_iter().collect(),
     )
     .await?;
@@ -198,23 +206,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing::info!("Starting HTTP server");
     let http_config = config.clone();
     let http_mint = mint.clone();
-    let http_node = node.clone();
     let http_cancel_token = cancel_token.clone();
     tokio::spawn(async move {
-        let mut ln = HashMap::new();
-        ln.insert(
-            LnKey::new(CurrencyUnit::Sat, PaymentMethod::Bolt11),
-            Arc::new(http_node)
-                as Arc<dyn MintLightning<Err = cdk::cdk_lightning::Error> + Send + Sync + 'static>,
-        );
-        match create_mint_router(
-            &http_config.mint_url.to_string(),
-            Arc::new(http_mint),
-            ln,
-            3600,
-        )
-        .await
-        {
+        match create_mint_router(Arc::new(http_mint)).await {
             Ok(v1_service) => {
                 let addr = SocketAddr::new(http_config.http_host, http_config.http_port);
                 if let Err(e) = axum::Server::bind(&addr)

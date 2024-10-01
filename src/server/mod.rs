@@ -15,11 +15,8 @@ use cdk::{
     dhke::{construct_proofs, hash_to_curve},
     mint::Mint,
     mint_url::MintUrl,
-    nuts::{
-        ContactInfo, CurrencyUnit, MeltBolt11Request, MeltQuoteState, PreMintSecrets, PublicKey,
-        State, Token,
-    },
-    util::{hex, unix_time},
+    nuts::{ContactInfo, CurrencyUnit, PreMintSecrets, PublicKey, State, Token},
+    util::hex,
 };
 use cdk_ldk::{lightning::ln::types::ChannelId, Node};
 use db::Db;
@@ -118,7 +115,7 @@ impl Chamberlain for RpcServer {
             if open_value > Amount::ZERO
                 && !self
                     .db
-                    .is_channel_claimed(channel_id.0)
+                    .is_channel_issued(channel_id.0)
                     .await
                     .map_err(|_| Status::internal("db error"))?
             {
@@ -413,46 +410,31 @@ impl Chamberlain for RpcServer {
         if let Some(token) = request.token.as_ref() {
             let token =
                 Token::from_str(token).map_err(|_| Status::invalid_argument("invalid token"))?;
+            if token.proofs().len() != 1 {
+                return Err(Status::invalid_argument("invalid token proofs"));
+            }
+            let token_proofs = token.proofs();
+            let mint_proofs = token_proofs
+                .get(self.mint.get_mint_url())
+                .ok_or(Status::invalid_argument("invalid token proofs"))?;
+            if token
+                .value()
+                .map_err(|_| Status::invalid_argument("invalid token amount"))?
+                != spendable_balance
+            {
+                return Err(Status::invalid_argument("incorrect token amount"));
+            }
 
-            let melt_quote = self
-                .mint
-                .new_melt_quote(
-                    address.to_string(),
-                    CurrencyUnit::Sat,
-                    spendable_balance.into(),
-                    Amount::ZERO,
-                    unix_time() + 60,
-                    address.to_string(),
-                )
-                .await
-                .map_err(|e| map_internal_error(e, "melt quote error"))?;
-
-            let melt_request = MeltBolt11Request {
-                quote: melt_quote.id,
-                inputs: token
-                    .proofs()
-                    .into_iter()
-                    .map(|(_, proofs)| proofs)
-                    .flatten()
-                    .collect(),
-                outputs: None,
-            };
-
-            let mut melt_quote = self
-                .mint
-                .verify_melt_request(&melt_request)
-                .await
-                .map_err(|_| Status::invalid_argument("invalid melt request"))?;
-            melt_quote.state = MeltQuoteState::Paid;
+            let token_ys = mint_proofs
+                .iter()
+                .map(|p| hash_to_curve(&p.secret.to_bytes()))
+                .collect::<Result<Vec<PublicKey>, _>>()
+                .map_err(|_| Status::invalid_argument("invalid proof"))?;
             self.mint
-                .update_melt_quote(melt_quote)
+                .localstore
+                .update_proofs_states(&token_ys, State::Spent)
                 .await
-                .map_err(|e| map_internal_error(e, "melt quote update error"))?;
-
-            self.mint
-                .process_melt_request(&melt_request, None, spendable_balance.into())
-                .await
-                .map_err(|e| map_internal_error(e, "melt quote process error"))?;
+                .map_err(|e| map_internal_error(e, "update proofs error"))?;
         }
 
         let txid = self
@@ -487,6 +469,12 @@ impl Chamberlain for RpcServer {
             channel.amount,
             channel.channel_id
         );
+
+        self.db
+            .issue_channel(channel.channel_id.0)
+            .await
+            .map_err(|_| Status::internal("db error"))?;
+
         Ok(Response::new(ReopenChannelResponse {
             channel_id: channel.channel_id.to_string(),
             address: Address::from_script(&channel.funding_script, self.config.network)

@@ -61,7 +61,7 @@ impl Db {
         Ok(())
     }
 
-    pub(super) async fn is_channel_claimed(&self, channel_id: [u8; 32]) -> Result<bool, Error> {
+    pub(super) async fn is_channel_issued(&self, channel_id: [u8; 32]) -> Result<bool, Error> {
         let read_txn = self.inner.begin_read()?;
         let table = read_txn.open_table(ISSUED_CHANNELS_TABLE)?;
         let is_claimed = match table.get(channel_id)? {
