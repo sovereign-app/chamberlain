@@ -468,7 +468,7 @@ dependencies = [
 [[package]]
 name = "cdk"
 version = "0.4.0"
-source = "git+https://github.com/davidcaseria/cdk?branch=ldk#cf8579627c1986fc969e2ef7cf0464b71aa7ca3a"
+source = "git+https://github.com/davidcaseria/cdk?branch=ldk#683ecc99be729c0e6365a9893fed04962eacd13a"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -497,7 +497,7 @@ dependencies = [
 [[package]]
 name = "cdk-axum"
 version = "0.4.0"
-source = "git+https://github.com/davidcaseria/cdk?branch=ldk#cf8579627c1986fc969e2ef7cf0464b71aa7ca3a"
+source = "git+https://github.com/davidcaseria/cdk?branch=ldk#683ecc99be729c0e6365a9893fed04962eacd13a"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -511,7 +511,7 @@ dependencies = [
 [[package]]
 name = "cdk-ldk"
 version = "0.1.0"
-source = "git+https://github.com/davidcaseria/cdk?branch=ldk#cf8579627c1986fc969e2ef7cf0464b71aa7ca3a"
+source = "git+https://github.com/davidcaseria/cdk?branch=ldk#683ecc99be729c0e6365a9893fed04962eacd13a"
 dependencies = [
  "async-stream",
  "async-trait",
@@ -539,7 +539,7 @@ dependencies = [
 [[package]]
 name = "cdk-redb"
 version = "0.4.0"
-source = "git+https://github.com/davidcaseria/cdk?branch=ldk#cf8579627c1986fc969e2ef7cf0464b71aa7ca3a"
+source = "git+https://github.com/davidcaseria/cdk?branch=ldk#683ecc99be729c0e6365a9893fed04962eacd13a"
 dependencies = [
  "async-trait",
  "cdk",
