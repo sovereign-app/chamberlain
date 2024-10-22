@@ -37,6 +37,8 @@ use tonic::transport::Server;
 
 const CACHE_TTI: Duration = Duration::from_secs(60 * 60);
 const CACHE_TTL: Duration = Duration::from_secs(60 * 60);
+const MELT_QUOTE_TTL: Duration = Duration::from_secs(5 * 60);
+const MINT_QUOTE_TTL: Duration = Duration::from_secs(5 * 60);
 
 #[tokio::main(flavor = "multi_thread")]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -162,7 +164,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             motd: config.mint_motd(),
             ..Default::default()
         },
-        QuoteTTL::new(60, 60),
+        QuoteTTL::new(MINT_QUOTE_TTL.as_secs(), MELT_QUOTE_TTL.as_secs()),
         Arc::new(mint_store),
         ln,
         vec![(CurrencyUnit::Sat, (0, 64))].into_iter().collect(),
