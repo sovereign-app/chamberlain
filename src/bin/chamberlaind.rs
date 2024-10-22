@@ -35,6 +35,9 @@ use tokio::signal::unix::SignalKind;
 use tokio_util::sync::CancellationToken;
 use tonic::transport::Server;
 
+const CACHE_TTI: Duration = Duration::from_secs(60 * 60);
+const CACHE_TTL: Duration = Duration::from_secs(60 * 60);
+
 #[tokio::main(flavor = "multi_thread")]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
@@ -208,7 +211,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let http_mint = mint.clone();
     let http_cancel_token = cancel_token.clone();
     tokio::spawn(async move {
-        match create_mint_router(Arc::new(http_mint)).await {
+        match create_mint_router(
+            Arc::new(http_mint),
+            CACHE_TTL.as_secs(),
+            CACHE_TTI.as_secs(),
+        )
+        .await
+        {
             Ok(v1_service) => {
                 let addr = SocketAddr::new(http_config.http_host, http_config.http_port);
                 if let Err(e) = axum::Server::bind(&addr)
