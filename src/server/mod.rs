@@ -322,7 +322,7 @@ impl Chamberlain for RpcServer {
             self.config.mint_url.clone().into(),
             proofs,
             None,
-            Some(CurrencyUnit::Sat),
+            CurrencyUnit::Sat,
         );
 
         Ok(Response::new(IssueChannelTokenResponse {
@@ -344,13 +344,10 @@ impl Chamberlain for RpcServer {
             .map_err(|_| Status::invalid_argument("invalid address network"))?;
         let token = Token::from_str(&request.token)
             .map_err(|_| Status::invalid_argument("invalid token"))?;
+        let token_proofs = token.proofs();
         if token.proofs().len() != 1 {
             return Err(Status::invalid_argument("invalid token proofs"));
         }
-        let token_proofs = token.proofs();
-        let mint_proofs = token_proofs
-            .get(self.mint.get_mint_url())
-            .ok_or(Status::invalid_argument("invalid token proofs"))?;
         let channel_balance = self
             .node
             .get_channel_info(channel_id)
@@ -364,7 +361,7 @@ impl Chamberlain for RpcServer {
             return Err(Status::invalid_argument("incorrect token amount"));
         }
 
-        let token_ys = mint_proofs
+        let token_ys = token_proofs
             .iter()
             .map(|p| hash_to_curve(&p.secret.to_bytes()))
             .collect::<Result<Vec<PublicKey>, _>>()
@@ -410,13 +407,10 @@ impl Chamberlain for RpcServer {
         if let Some(token) = request.token.as_ref() {
             let token =
                 Token::from_str(token).map_err(|_| Status::invalid_argument("invalid token"))?;
+            let token_proofs = token.proofs();
             if token.proofs().len() != 1 {
                 return Err(Status::invalid_argument("invalid token proofs"));
             }
-            let token_proofs = token.proofs();
-            let mint_proofs = token_proofs
-                .get(self.mint.get_mint_url())
-                .ok_or(Status::invalid_argument("invalid token proofs"))?;
             if token
                 .value()
                 .map_err(|_| Status::invalid_argument("invalid token amount"))?
@@ -425,7 +419,7 @@ impl Chamberlain for RpcServer {
                 return Err(Status::invalid_argument("incorrect token amount"));
             }
 
-            let token_ys = mint_proofs
+            let token_ys = token_proofs
                 .iter()
                 .map(|p| hash_to_curve(&p.secret.to_bytes()))
                 .collect::<Result<Vec<PublicKey>, _>>()
