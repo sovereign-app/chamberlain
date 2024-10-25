@@ -1,7 +1,14 @@
 [package]
 name = "chamberlain"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
+description = "A cashu mint with integrated Lightning node."
+license-file = "LICENSE"
+readme = "README.md"
+repository = "https://github.com/sovereign-apps/chamberlain"
+homepage = "https://sovereign.app"
+keywords = ["cashu", "lightning", "node", "mint"]
+categories = ["blockchain", "networking"]
 
 [features]
 default = ["server"]
