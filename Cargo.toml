@@ -1,6 +1,6 @@
 [package]
 name = "chamberlain"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 description = "A cashu mint with integrated Lightning node."
 license-file = "LICENSE"
