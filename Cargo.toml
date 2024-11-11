@@ -47,7 +47,12 @@ serde = { version = "1.0.214", features = ["derive"] }
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal"] }
 tokio-util = { version = "0.7.11", optional = true }
 toml = "0.8.14"
-tonic = { version = "0.12.2", features = ["channel", "tls"] }
+tonic = { version = "0.12.2", features = [
+    "channel",
+    "tls",
+    "tls-native-roots",
+    "tls-webpki-roots",
+] }
 tracing = { version = "0.1.40", features = ["log"] }
 tracing-subscriber = { version = "0.3.18", features = [
     "env-filter",

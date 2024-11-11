@@ -1,6 +1,5 @@
-use std::{net::SocketAddr, path::PathBuf};
+use std::net::SocketAddr;
 
-use bitcoin::Network;
 use cdk::util::hex;
 use chamberlain::rpc::{
     chamberlain_client::ChamberlainClient, AnnounceNodeRequest, CloseChannelRequest,
@@ -8,7 +7,11 @@ use chamberlain::rpc::{
     OpenChannelRequest, ReopenChannelRequest, SweepSpendableBalanceRequest,
 };
 use clap::{Parser, Subcommand};
-use tonic::Request;
+use tonic::{
+    metadata::MetadataValue,
+    transport::{Channel, ClientTlsConfig},
+    Request,
+};
 use url::Url;
 
 #[derive(Parser)]
@@ -18,25 +21,9 @@ struct Cli {
     #[arg(short, long, default_value = "http://127.0.0.1:3339")]
     addr: Url,
 
-    /// Bitcoin Network
-    #[arg(short, long, default_value = "bitcoin")]
-    network: Network,
-
-    /// Certificate authority file
-    #[arg(short, long)]
-    ca_file: Option<PathBuf>,
-
-    /// Socks5 proxy
-    #[arg(short, long)]
-    proxy: Option<Url>,
-
     /// Auth token
     #[arg(short, long)]
-    token: Option<String>,
-
-    /// Auth token file
-    #[arg(short = 'f', long, default_value = "~/.chamberlain/auth_token")]
-    token_file: PathBuf,
+    token: String,
 
     #[command(subcommand)]
     command: Commands,
@@ -120,7 +107,18 @@ enum Commands {
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
-    let mut client = ChamberlainClient::connect(cli.addr.to_string()).await?;
+    let tls_config = ClientTlsConfig::new().with_enabled_roots();
+    let channel = Channel::from_shared(cli.addr.to_string())?
+        .tls_config(tls_config)?
+        .connect()
+        .await?;
+    let bearer_token = format!("Bearer {}", cli.token.as_str());
+    let header_value: MetadataValue<_> = bearer_token.parse()?;
+    let mut client = ChamberlainClient::with_interceptor(channel, |mut req: Request<()>| {
+        req.metadata_mut()
+            .insert("authorization", header_value.clone());
+        Ok(req)
+    });
 
     match cli.command {
         Commands::GetInfo => {
