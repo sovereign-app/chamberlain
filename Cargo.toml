@@ -54,7 +54,6 @@ toml = "0.8.14"
 tonic = { version = "0.12.2", features = [
     "channel",
     "tls",
-    "tls-native-roots",
     "tls-webpki-roots",
 ] }
 tracing = { version = "0.1.40", features = ["log"] }
