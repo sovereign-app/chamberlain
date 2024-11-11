@@ -26,11 +26,12 @@ use cdk_ldk::{
 };
 use cdk_redb::MintRedbDatabase;
 use chamberlain::{
-    rpc::chamberlain_server::ChamberlainServer,
+    rpc::{chamberlain_server::ChamberlainServer, server_auth_interceptor},
     server::{Cli, Config, RpcServer, AUTH_TOKEN_FILE, KEY_FILE, MINT_DB_FILE, NODE_DIR},
 };
 use clap::Parser;
 use futures::StreamExt;
+use jsonwebtoken::jwk::JwkSet;
 use tokio::signal::unix::SignalKind;
 use tokio_util::sync::CancellationToken;
 use tonic::transport::Server;
@@ -181,10 +182,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let rpc_mint = mint.clone();
     let rpc_cancel_token = cancel_token.clone();
     tokio::spawn(async move {
+        let jwk_set = reqwest::get(rpc_config.rpc_auth_jwks_url.clone())
+            .await
+            .unwrap()
+            .json::<JwkSet>()
+            .await
+            .unwrap();
         loop {
             let rpc_server = RpcServer::new(rpc_config.clone(), rpc_mint.clone(), rpc_node.clone());
             let mut server = Server::builder();
-            let svc = ChamberlainServer::new(rpc_server.clone());
+            let svc = ChamberlainServer::with_interceptor(
+                rpc_server.clone(),
+                server_auth_interceptor(rpc_config.rpc_auth_sub.clone(), jwk_set.clone()).unwrap(),
+            );
             let router = server.add_service(svc);
             tokio::select! {
                 _ = router.serve(SocketAddr::new(rpc_config.rpc_host, rpc_config.rpc_port)) => {}

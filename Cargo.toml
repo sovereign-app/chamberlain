@@ -23,8 +23,10 @@ server = [
     "dirs",
     "envy",
     "futures",
+    "jsonwebtoken",
     "public-ip",
     "redb",
+    "reqwest",
     "tokio-util",
     "tracing-subscriber",
 ]
@@ -40,9 +42,11 @@ clap = { version = "4.5.4", features = ["derive", "cargo"], optional = true }
 dirs = { version = "5.0.1", optional = true }
 envy = { version = "0.4.2", optional = true }
 futures = { version = "0.3.28", optional = true }
+jsonwebtoken = { version = "9.3.0", optional = true }
 prost = "0.13.3"
 public-ip = { version = "0.2.2", optional = true }
 redb = { version = "2.2.0", optional = true }
+reqwest = { version = "0.12.9", optional = true }
 serde = { version = "1.0.214", features = ["derive"] }
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal"] }
 tokio-util = { version = "0.7.11", optional = true }

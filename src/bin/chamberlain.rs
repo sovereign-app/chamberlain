@@ -2,13 +2,13 @@ use std::net::SocketAddr;
 
 use cdk::util::hex;
 use chamberlain::rpc::{
-    chamberlain_client::ChamberlainClient, AnnounceNodeRequest, CloseChannelRequest,
-    ConnectPeerRequest, FundChannelRequest, GetInfoRequest, IssueChannelTokenRequest,
-    OpenChannelRequest, ReopenChannelRequest, SweepSpendableBalanceRequest,
+    chamberlain_client::ChamberlainClient, client_auth_interceptor, AnnounceNodeRequest,
+    CloseChannelRequest, ConnectPeerRequest, FundChannelRequest, GetInfoRequest,
+    IssueChannelTokenRequest, OpenChannelRequest, ReopenChannelRequest,
+    SweepSpendableBalanceRequest,
 };
 use clap::{Parser, Subcommand};
 use tonic::{
-    metadata::MetadataValue,
     transport::{Channel, ClientTlsConfig},
     Request,
 };
@@ -112,13 +112,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .tls_config(tls_config)?
         .connect()
         .await?;
-    let bearer_token = format!("Bearer {}", cli.token.as_str());
-    let header_value: MetadataValue<_> = bearer_token.parse()?;
-    let mut client = ChamberlainClient::with_interceptor(channel, |mut req: Request<()>| {
-        req.metadata_mut()
-            .insert("authorization", header_value.clone());
-        Ok(req)
-    });
+    let mut client =
+        ChamberlainClient::with_interceptor(channel, client_auth_interceptor(cli.token)?);
 
     match cli.command {
         Commands::GetInfo => {
