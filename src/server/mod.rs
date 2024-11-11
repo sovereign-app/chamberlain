@@ -5,11 +5,7 @@ use std::{
     str::FromStr,
 };
 
-use bitcoin::{
-    consensus::Decodable,
-    secp256k1::rand::{self, distributions::Alphanumeric, Rng},
-    Address, Network, Transaction,
-};
+use bitcoin::{consensus::Decodable, Address, Network, Transaction};
 use cdk::{
     amount::{Amount, SplitTarget},
     dhke::{construct_proofs, hash_to_curve},
@@ -545,7 +541,6 @@ create_config_structs!(
     (mint_contact_npub: String, "Mint contact nostr public key"),
     (mint_contact_twitter: String, "Mint contact twitter"),
     (mint_motd: String, "Mint message of the day"),
-    (password: String, "RPC auth token password"),
     (log_level: LogLevel, "Log level"),
 );
 
@@ -685,21 +680,9 @@ impl Default for Config {
             mint_contact_npub: "".to_string(),
             mint_contact_twitter: "".to_string(),
             mint_motd: "".to_string(),
-            password: generate_password(),
             log_level: LogLevel::Info,
         }
     }
-}
-
-fn generate_password() -> String {
-    let mut rng = rand::thread_rng();
-    let password: String = std::iter::repeat(())
-        .map(|()| rng.sample(Alphanumeric))
-        .filter(|c| !matches!(c, b'I' | b'l' | b'O' | b'0'))
-        .take(8)
-        .map(char::from)
-        .collect();
-    password
 }
 
 #[cfg(test)]
