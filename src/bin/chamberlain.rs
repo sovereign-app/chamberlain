@@ -1,14 +1,11 @@
-use std::{fs, net::SocketAddr, path::PathBuf};
+use std::{net::SocketAddr, path::PathBuf};
 
-use base64::{engine::general_purpose, Engine};
 use bitcoin::Network;
 use cdk::util::hex;
 use chamberlain::rpc::{
-    chamberlain_client::ChamberlainClient, client_auth_interceptor, create_channel,
-    finish_auth_token_base64, start_auth_token, AnnounceNodeRequest, CloseChannelRequest,
-    ConnectPeerRequest, FundChannelRequest, GenerateAuthTokenRequest, GetInfoRequest,
-    IssueChannelTokenRequest, OpenChannelRequest, ReopenChannelRequest,
-    SweepSpendableBalanceRequest,
+    chamberlain_client::ChamberlainClient, AnnounceNodeRequest, CloseChannelRequest,
+    ConnectPeerRequest, FundChannelRequest, GetInfoRequest, IssueChannelTokenRequest,
+    OpenChannelRequest, ReopenChannelRequest, SweepSpendableBalanceRequest,
 };
 use clap::{Parser, Subcommand};
 use tonic::Request;
@@ -47,11 +44,6 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Generate a new auth token
-    GenerateAuthToken {
-        /// Password
-        password: Option<String>,
-    },
     /// Get info
     GetInfo,
     /// Announce node
@@ -128,39 +120,9 @@ enum Commands {
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
-    let token = if let Some(token) = cli.token.map(|t| general_purpose::STANDARD.decode(t)) {
-        token?
-    } else {
-        let token_file = if let Some(home_dir) = dirs::home_dir() {
-            if let Ok(without_tilde) = cli.token_file.strip_prefix("~") {
-                home_dir.join(without_tilde)
-            } else {
-                cli.token_file
-            }
-        } else {
-            cli.token_file
-        };
-        fs::read(token_file)?
-    };
-
-    let mut client = ChamberlainClient::with_interceptor(
-        create_channel(cli.addr, cli.proxy, cli.ca_file).await?,
-        client_auth_interceptor(&token)?,
-    );
+    let mut client = ChamberlainClient::connect(cli.addr.to_string()).await?;
 
     match cli.command {
-        Commands::GenerateAuthToken { password } => {
-            let password = password.unwrap_or_else(|| {
-                rpassword::prompt_password("Password: ").expect("Failed to read password")
-            });
-            let (s, m) = start_auth_token(&password);
-            let res = client
-                .generate_auth_token(Request::new(GenerateAuthTokenRequest { message: m }))
-                .await?
-                .into_inner();
-            let token = finish_auth_token_base64(s, res.message)?;
-            println!("{}", token);
-        }
         Commands::GetInfo => {
             let response = client.get_info(Request::new(GetInfoRequest {})).await?;
             let info = response.into_inner();

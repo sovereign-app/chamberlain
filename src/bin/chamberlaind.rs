@@ -26,7 +26,7 @@ use cdk_ldk::{
 };
 use cdk_redb::MintRedbDatabase;
 use chamberlain::{
-    rpc::{chamberlain_server::ChamberlainServer, server_auth_interceptor_from_file},
+    rpc::chamberlain_server::ChamberlainServer,
     server::{Cli, Config, RpcServer, AUTH_TOKEN_FILE, KEY_FILE, MINT_DB_FILE, NODE_DIR},
 };
 use clap::Parser;
@@ -168,6 +168,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Arc::new(mint_store),
         ln,
         vec![(CurrencyUnit::Sat, (0, 64))].into_iter().collect(),
+        HashMap::new(),
     )
     .await?;
 
@@ -181,29 +182,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let rpc_cancel_token = cancel_token.clone();
     tokio::spawn(async move {
         loop {
-            let restart_token = rpc_cancel_token.child_token();
-            let rpc_server = RpcServer::new(
-                rpc_config.clone(),
-                rpc_mint.clone(),
-                rpc_node.clone(),
-                restart_token.clone(),
-            );
+            let rpc_server = RpcServer::new(rpc_config.clone(), rpc_mint.clone(), rpc_node.clone());
             let mut server = Server::builder();
-            let svc = ChamberlainServer::with_interceptor(
-                rpc_server.clone(),
-                server_auth_interceptor_from_file(rpc_config.data_dir().join(AUTH_TOKEN_FILE))
-                    .expect("Invalid auth token"),
-            );
+            let svc = ChamberlainServer::new(rpc_server.clone());
             let router = server.add_service(svc);
             tokio::select! {
                 _ = router.serve(SocketAddr::new(rpc_config.rpc_host, rpc_config.rpc_port)) => {}
                 _ = rpc_cancel_token.cancelled() => {}
-                _ = restart_token.cancelled() => {}
             }
             if rpc_cancel_token.is_cancelled() {
                 break;
             } else {
-                tracing::info!("Restarting RPC server");
+                tracing::error!("RPC server error, restarting in 5 seconds");
+                tokio::time::sleep(Duration::from_secs(5)).await;
             }
         }
     });

@@ -20,18 +20,17 @@ use cdk::{
 };
 use cdk_ldk::{lightning::ln::types::ChannelId, Node};
 use db::Db;
-use tokio_util::sync::CancellationToken;
 use tonic::{Request, Response, Status};
 use tracing_subscriber::EnvFilter;
 use url::Url;
 
 use crate::rpc::{
-    chamberlain_server::Chamberlain, finish_auth_token, start_auth_token, AnnounceNodeRequest,
-    AnnounceNodeResponse, CloseChannelRequest, CloseChannelResponse, ConnectPeerRequest,
-    ConnectPeerResponse, FundChannelRequest, FundChannelResponse, GenerateAuthTokenRequest,
-    GenerateAuthTokenResponse, GetInfoRequest, GetInfoResponse, IssueChannelTokenRequest,
-    IssueChannelTokenResponse, OpenChannelRequest, OpenChannelResponse, ReopenChannelRequest,
-    ReopenChannelResponse, SweepSpendableBalanceRequest, SweepSpendableBalanceResponse,
+    chamberlain_server::Chamberlain, AnnounceNodeRequest, AnnounceNodeResponse,
+    CloseChannelRequest, CloseChannelResponse, ConnectPeerRequest, ConnectPeerResponse,
+    FundChannelRequest, FundChannelResponse, GetInfoRequest, GetInfoResponse,
+    IssueChannelTokenRequest, IssueChannelTokenResponse, OpenChannelRequest, OpenChannelResponse,
+    ReopenChannelRequest, ReopenChannelResponse, SweepSpendableBalanceRequest,
+    SweepSpendableBalanceResponse,
 };
 
 mod db;
@@ -49,38 +48,22 @@ pub struct RpcServer {
     db: Db,
     mint: Mint,
     node: Node,
-    restart_token: CancellationToken,
 }
 
 impl RpcServer {
-    pub fn new(config: Config, mint: Mint, node: Node, restart_token: CancellationToken) -> Self {
+    pub fn new(config: Config, mint: Mint, node: Node) -> Self {
         let db = Db::open(config.data_dir().join(SERVER_DB_FILE)).expect("db open");
         Self {
             config,
             db,
             mint,
             node,
-            restart_token,
         }
     }
 }
 
 #[tonic::async_trait]
 impl Chamberlain for RpcServer {
-    async fn generate_auth_token(
-        &self,
-        request: Request<GenerateAuthTokenRequest>,
-    ) -> Result<Response<GenerateAuthTokenResponse>, Status> {
-        let request = request.into_inner();
-        let (s, m) = start_auth_token(&self.config.password);
-        let token =
-            finish_auth_token(s, request.message).map_err(|e| Status::internal(e.to_string()))?;
-        fs::write(self.config.data_dir().join(AUTH_TOKEN_FILE), token)
-            .map_err(|e| Status::internal(e.to_string()))?;
-        self.restart_token.cancel();
-        Ok(Response::new(GenerateAuthTokenResponse { message: m }))
-    }
-
     async fn get_info(
         &self,
         _request: Request<GetInfoRequest>,
@@ -596,6 +579,7 @@ impl Into<EnvFilter> for LogLevel {
 impl Config {
     pub fn load(cli: Cli) -> Self {
         let default = Self::default();
+        let env_default = envy::from_env::<Cli>().unwrap_or_default();
         let config_file = cli
             .data_dir
             .as_ref()
@@ -612,7 +596,8 @@ impl Config {
                 None
             }
         };
-        let overrides = file_cli.unwrap_or_default().override_values(cli);
+        let overrides =
+            env_default.override_values(file_cli.unwrap_or_default().override_values(cli));
         Config::new(overrides)
     }
 
