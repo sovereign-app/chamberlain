@@ -2,7 +2,7 @@
 pub mod server;
 
 pub mod rpc {
-    use jsonwebtoken::{jwk::JwkSet, DecodingKey, Validation};
+    use jsonwebtoken::{jwk::JwkSet, Algorithm, DecodingKey, Validation};
     use tonic::{
         metadata::{errors::InvalidMetadataValue, MetadataValue},
         Request, Status,
@@ -30,7 +30,7 @@ pub mod rpc {
         Box<dyn std::error::Error>,
     > {
         let mut validation = Validation::default();
-        validation.sub = Some(sub);
+        validation.algorithms = vec![Algorithm::RS256];
         let keys = jwk_set
             .keys
             .into_iter()
@@ -39,15 +39,17 @@ pub mod rpc {
 
         Ok(move |req: Request<()>| {
             if let Some(value) = req.metadata().get("authorization") {
+                let token = value
+                    .to_str()
+                    .map_err(|e| Status::invalid_argument(format!("Token Error: {}", e)))?
+                    .strip_prefix("Bearer ")
+                    .ok_or_else(|| Status::invalid_argument("Invalid token"))?;
                 for key in &keys {
-                    if let Ok(token) = jsonwebtoken::decode::<Claims>(
-                        value
-                            .to_str()
-                            .map_err(|e| Status::invalid_argument(format!("token error: {}", e)))?,
-                        key,
-                        &validation,
-                    ) {
-                        tracing::debug!("Authenticated as {}", token.claims.sub);
+                    if let Ok(token_data) = jsonwebtoken::decode::<Claims>(token, key, &validation)
+                    {
+                        if token_data.claims.sub != sub {
+                            return Err(Status::unauthenticated("Invalid token"));
+                        }
                         return Ok(req);
                     }
                 }
