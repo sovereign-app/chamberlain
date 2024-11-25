@@ -27,7 +27,7 @@ use cdk_ldk::{
 use cdk_redb::MintRedbDatabase;
 use chamberlain::{
     rpc::{chamberlain_server::ChamberlainServer, server_auth_interceptor},
-    server::{Cli, Config, RpcServer, AUTH_TOKEN_FILE, KEY_FILE, MINT_DB_FILE, NODE_DIR},
+    server::{Cli, Config, RpcServer, KEY_FILE, MINT_DB_FILE, NODE_DIR},
 };
 use clap::Parser;
 use futures::StreamExt;
@@ -73,15 +73,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let key = Xpriv::new_master(config.network, &seed)?;
         let mut file = fs::File::create(&key_file)?;
         file.write_all(&key.encode())?;
-    }
-
-    // Generate auth token if necessary
-    let auth_token_file = config.data_dir().join(AUTH_TOKEN_FILE);
-    if fs::metadata(&auth_token_file).is_err() {
-        tracing::warn!("Generating default auth token");
-        let token = [0u8; 32];
-        let mut file = fs::File::create(&auth_token_file)?;
-        file.write_all(&token)?;
     }
 
     // Load key

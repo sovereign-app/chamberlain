@@ -38,7 +38,7 @@ cdk = { git = "https://github.com/davidcaseria/cdk", branch = "ldk", optional = 
 cdk-axum = { git = "https://github.com/davidcaseria/cdk", branch = "ldk", optional = true }
 cdk-ldk = { git = "https://github.com/davidcaseria/cdk", branch = "ldk", optional = true }
 cdk-redb = { git = "https://github.com/davidcaseria/cdk", branch = "ldk", optional = true }
-clap = { version = "4.5.4", features = ["derive", "cargo"], optional = true }
+clap = { version = "4.5.21", features = ["derive", "cargo"], optional = true }
 dirs = { version = "5.0.1", optional = true }
 envy = { version = "0.4.2", optional = true }
 futures = { version = "0.3.28", optional = true }
@@ -62,7 +62,7 @@ tracing-subscriber = { version = "0.3.18", features = [
     "env-filter",
     "tracing-log",
 ], optional = true }
-url = { version = "2.5.3", features = ["serde"] }
+url = { version = "2.5.4", features = ["serde"] }
 
 [build-dependencies]
 tonic-build = "0.12.2"

@@ -31,7 +31,6 @@ use crate::rpc::{
 
 mod db;
 
-pub const AUTH_TOKEN_FILE: &str = "auth_token";
 pub const CONFIG_FILE: &str = "config.toml";
 pub const KEY_FILE: &str = "key";
 pub const MINT_DB_FILE: &str = "mint";
