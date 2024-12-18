@@ -83,6 +83,9 @@ enum Commands {
         /// Address
         #[arg(long)]
         address: String,
+        /// Force (only for emergencies). Will result in unbacked e-cash.
+        #[arg(long)]
+        force: bool,
     },
     /// Sweep spendable funds
     SweepSpendableBalance {
@@ -201,12 +204,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             channel_id,
             token,
             address,
+            force,
         } => {
             client
                 .close_channel(Request::new(CloseChannelRequest {
                     channel_id,
                     token,
                     address,
+                    force,
                 }))
                 .await?;
         }

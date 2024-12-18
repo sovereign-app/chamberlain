@@ -320,35 +320,34 @@ impl Chamberlain for RpcServer {
             .map_err(|_| Status::invalid_argument("invalid address"))?
             .require_network(self.config.network)
             .map_err(|_| Status::invalid_argument("invalid address network"))?;
-        let token = Token::from_str(&request.token)
-            .map_err(|_| Status::invalid_argument("invalid token"))?;
-        let token_proofs = token.proofs();
-        if token.proofs().len() != 1 {
-            return Err(Status::invalid_argument("invalid token proofs"));
-        }
-        let channel_balance = self
-            .node
-            .get_channel_info(channel_id)
-            .map_err(|e| map_internal_error(e, "channel not available"))?
-            .balance;
-        if token
-            .value()
-            .map_err(|_| Status::invalid_argument("invalid token amount"))?
-            != channel_balance
-        {
-            return Err(Status::invalid_argument("incorrect token amount"));
-        }
+        if !request.force {
+            let token = Token::from_str(&request.token)
+                .map_err(|_| Status::invalid_argument("invalid token"))?;
+            let channel_balance = self
+                .node
+                .get_channel_info(channel_id)
+                .map_err(|e| map_internal_error(e, "channel not available"))?
+                .balance;
+            if token
+                .value()
+                .map_err(|_| Status::invalid_argument("invalid token amount"))?
+                != channel_balance
+            {
+                return Err(Status::invalid_argument("incorrect token amount"));
+            }
 
-        let token_ys = token_proofs
-            .iter()
-            .map(|p| hash_to_curve(&p.secret.to_bytes()))
-            .collect::<Result<Vec<PublicKey>, _>>()
-            .map_err(|_| Status::invalid_argument("invalid proof"))?;
-        self.mint
-            .localstore
-            .update_proofs_states(&token_ys, State::Spent)
-            .await
-            .map_err(|e| map_internal_error(e, "update proofs error"))?;
+            let token_ys = token
+                .proofs()
+                .iter()
+                .map(|p| hash_to_curve(&p.secret.to_bytes()))
+                .collect::<Result<Vec<PublicKey>, _>>()
+                .map_err(|_| Status::invalid_argument("invalid proof"))?;
+            self.mint
+                .localstore
+                .update_proofs_states(&token_ys, State::Spent)
+                .await
+                .map_err(|e| map_internal_error(e, "update proofs error"))?;
+        }
 
         self.node
             .close_channel(channel_id, address.script_pubkey())

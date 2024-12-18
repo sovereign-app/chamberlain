@@ -81,6 +81,7 @@ message CloseChannelRequest {
     string channel_id = 1;
     string address = 2;
     string token = 3;
+    bool force = 4;
 }
 
 message CloseChannelResponse {
