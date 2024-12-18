@@ -182,11 +182,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         loop {
             let rpc_server = RpcServer::new(rpc_config.clone(), rpc_mint.clone(), rpc_node.clone());
             let mut server = Server::builder();
-            let svc = ChamberlainServer::with_interceptor(
-                rpc_server.clone(),
-                server_auth_interceptor(rpc_config.rpc_auth_sub.clone(), jwk_set.clone()).unwrap(),
-            );
-            let router = server.add_service(svc);
+
+            let router = if rpc_config.rpc_auth_disable {
+                let svc = ChamberlainServer::new(rpc_server.clone());
+                server.add_service(svc)
+            } else {
+                let svc = ChamberlainServer::with_interceptor(
+                    rpc_server.clone(),
+                    server_auth_interceptor(rpc_config.rpc_auth_sub.clone(), jwk_set.clone())
+                        .unwrap(),
+                );
+                server.add_service(svc)
+            };
             tokio::select! {
                 _ = router.serve(SocketAddr::new(rpc_config.rpc_host, rpc_config.rpc_port)) => {}
                 _ = rpc_cancel_token.cancelled() => {}
